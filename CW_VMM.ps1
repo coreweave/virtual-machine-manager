@@ -163,7 +163,7 @@ $ComboBox1.width                 = 200
 $ComboBox1.height                = 20
 $ComboBox1.AutoSize = $true
 $ComboBox1.text                  = "Select action to invoke"
-$ListItems = @('Change Namespace','Load Kubeconfig','Update Binaries')
+$ListItems = @('Load Virtual Machines','Change Namespace','Load Kubeconfig','Update Binaries','Export List to CSV')
 $ListItems | ForEach-Object {[void] $ComboBox1.Items.Add($_)}
 $ComboBox1.location              = New-Object System.Drawing.Point(170,690)
 $ComboBox1.Anchor                = 'Bottom,Left'
@@ -245,15 +245,31 @@ $Button1.Add_Click(
 
                 [void]$Form1.ShowDialog()
             }
-        if($ComboBox1.SelectedItem -eq $ListItems[1])
+        if($ComboBox1.SelectedItem -eq $ListItems[2])
             {
                 Load-KubeConfig
             }
-        if($ComboBox1.SelectedItem -eq $ListItems[2])
+        if($ComboBox1.SelectedItem -eq $ListItems[3])
             {
                 if(!(test-path $env:ProgramData\k8s -ErrorAction SilentlyContinue)){New-Item -Path $env:ProgramData -Name k8s -ItemType Directory -Force | out-null}
                 Invoke-WebRequest -UseBasicParsing -Uri "https://dl.k8s.io/release/$(Invoke-RestMethod -Uri "https://dl.k8s.io/release/stable.txt")/bin/windows/amd64/kubectl.exe" -OutFile $env:ProgramData\k8s\kubectl.exe
                 Invoke-WebRequest -Uri $((Invoke-restmethod https://api.github.com/repos/kubevirt/kubevirt/releases)[0].assets.browser_download_url.Where({$_ -like '*virtctl-*-windows-amd64.exe'}))  -OutFile $env:ProgramData\k8s\virtctl.exe
+            }
+
+        if($ComboBox1.SelectedItem -eq $ListItems[4])
+            {
+                if(!($Table)){$Button2.PerformClick()}
+                $SaveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+                $SaveFileDialog.initialDirectory = $($env:USERPROFILE + '\Documents')
+                $SaveFileDialog.filter = "Comma Separated Value File (*.csv) | *.csv|All files (*.*)|*.*"
+                $SaveFileDialog.FileName = "$($Namespace+'_VDI_'+((get-date).tofiletime()))"
+                $SaveFileDialog.CheckPathExists = $true
+                [void]$SaveFileDialog.ShowDialog()
+                if($SaveFileDialog.FileName  -match [regex]::Escape('\'))
+                    {
+                        $Table | Export-Csv -NoTypeInformation -Path $SaveFileDialog.FileName -Force
+                        Invoke-Item  $(Split-Path -Parent  $SaveFileDialog.FileName)
+                    }
             }
 
         Elseif(!($ComboBox1.SelectedItem)){[System.Windows.Forms.MessageBox]::Show("Please select an item from the list box.",'Selection Error','OK','Error')}
@@ -264,7 +280,7 @@ $Form.controls.AddRange(@($dataGridView,$Button1, $ComboBox1,$Button2,$PictureBo
 $Button2.Add_Click(
     {
         $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $Namespace") | convertfrom-json
-        $Table = New-Object system.Data.DataTable "VirtualMachines"
+        $global:Table = New-Object system.Data.DataTable "VirtualMachines"
         $Table.Columns.Add("Name","System.String") | out-null
         $Table.Columns.Add("clusterIP","System.String") | out-null
         $Table.Columns.Add("IP","System.String") | out-null
