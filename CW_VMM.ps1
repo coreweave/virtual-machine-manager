@@ -346,6 +346,8 @@ function Load-KubeConfig
                             }
                     }
                 Else{Move-Item $OpenFileDialog.FileName -Destination $env:userprofile\.kube\config -Force}
+
+                $global:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
             }
     }
 
