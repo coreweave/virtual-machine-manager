@@ -6,7 +6,7 @@ $Form                            = New-Object system.Windows.Forms.Form
 $Form.AutoSizeMode               = 'GrowAndShrink'
 $Form.ClientSize                 = '800,720'
 $Form.Anchor = 'Top,Bottom,Left,Right'
-$Form.text                       = "Virtual Machine Manager"
+$Form.text                       = "CoreWeave Virtual Machine Manager"
 $Form.TopMost                    = $false
 #$Form.MaximizeBox                = $false
 
@@ -58,7 +58,7 @@ $toolStripItem1.Text = "Start VM";
 $toolStripItem1.add_Click(
     {
         $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe start $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to start.`nLoad Virtual Machines again to check status.",'Virtual Machine Manager','OK','Information')
+        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to start.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
     })
 
 [System.Windows.Forms.ToolStripItem]$toolStripItem2 = New-Object System.Windows.Forms.ToolStripMenuItem
@@ -66,7 +66,7 @@ $toolStripItem2.Text = "Stop VM";
 $toolStripItem2.add_Click(
     {
         $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe stop $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to stop.`nLoad Virtual Machines again to check status.",'Virtual Machine Manager','OK','Information')
+        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to stop.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
     })
 
 [System.Windows.Forms.ToolStripItem]$toolStripItem3 = New-Object System.Windows.Forms.ToolStripMenuItem
@@ -74,7 +74,7 @@ $toolStripItem3.Text = "Restart VM";
 $toolStripItem3.add_Click(
     {
         $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe restart $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to restart.`nLoad Virtual Machines again to check status.",'Virtual Machine Manager','OK','Information')
+        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to restart.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
     })
 
 [System.Windows.Forms.ToolStripItem]$toolStripItem4 = New-Object System.Windows.Forms.ToolStripMenuItem
