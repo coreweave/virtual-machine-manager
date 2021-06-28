@@ -280,43 +280,48 @@ $Form.controls.AddRange(@($dataGridView,$Button1, $ComboBox1,$Button2,$PictureBo
 
 $Button2.Add_Click(
     {
-        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $Namespace") | convertfrom-json
-        $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $Namespace" |convertfrom-json)
-        $global:Table = New-Object system.Data.DataTable "VirtualMachines"
-        $Table.Columns.Add("Name","System.String") | out-null
-        $Table.Columns.Add("clusterIP","System.String") | out-null
-        $Table.Columns.Add("IP","System.String") | out-null
-        $Table.Columns.Add("Reigon","System.String") | out-null
-        $Table.Columns.Add("GPU","System.String") | out-null
-        $Table.Columns.Add("Cores","System.String") | out-null
-        $Table.Columns.Add("RAM","System.String") | out-null
-        $Table.Columns.Add("Storage","System.String") | out-null
-        $Table.Columns.Add("CreationTime","System.String") | out-null
-        $Table.Columns.Add("Running","System.Boolean") | out-null
-        $Table.Columns.Add("Namespace","System.String") | out-null
+        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $Namespace" -ErrorVariable LookupErr) | convertfrom-json
+        if(!($LookupErr))
+            {
+                $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $Namespace" |convertfrom-json)
+                $global:Table = New-Object system.Data.DataTable "VirtualMachines"
+                $Table.Columns.Add("Name","System.String") | out-null
+                $Table.Columns.Add("clusterIP","System.String") | out-null
+                $Table.Columns.Add("IP","System.String") | out-null
+                $Table.Columns.Add("Reigon","System.String") | out-null
+                $Table.Columns.Add("GPU","System.String") | out-null
+                $Table.Columns.Add("Cores","System.String") | out-null
+                $Table.Columns.Add("RAM","System.String") | out-null
+                $Table.Columns.Add("Storage","System.String") | out-null
+                $Table.Columns.Add("CreationTime","System.String") | out-null
+                $Table.Columns.Add("Running","System.Boolean") | out-null
+                $Table.Columns.Add("Namespace","System.String") | out-null
 
-        foreach($Row in $Data.Items)
-	        {
-		        $NewRow = $Table.NewRow()
-                $Svc = $SvcData.items | Where {$_.metadata.name -eq $($row.metadata.name+'-tcp')}
-		        $NewRow.Name = $Row.metadata.name
-                $NewRow.clusterIP = $svc.spec.clusterIP
-		        $NewRow.IP = $svc.status.loadbalancer.ingress.ip
-		        $NewRow.Reigon = $Row.spec.template.spec.nodeselector.'topology.kubernetes.io/region'
-		        $NewRow.GPU = $Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'
-		        $NewRow.Cores = $Row.spec.template.spec.domain.cpu.cores
-		        $NewRow.RAM = $Row.spec.template.spec.domain.resources.requests.memory
-		        $NewRow.Storage = $Row.spec.datavolumetemplates.spec.pvc.resources.requests.storage
-                $NewRow.CreationTime = get-date $($Row.metadata.creationtimestamp) -Format 'MM/dd/yyy hh:mmtt'
-                $NewRow.Running = [bool]$Row.status.conditions.status
-                $NewRow.Namespace = $Row.metadata.namespace
-		        $Table.Rows.Add($NewRow)
-	        }
+                foreach($Row in $Data.Items)
+	                {
+		                $NewRow = $Table.NewRow()
+                        $Svc = $SvcData.items | Where {$_.metadata.name -eq $($row.metadata.name+'-tcp')}
+		                $NewRow.Name = $Row.metadata.name
+                        $NewRow.clusterIP = $svc.spec.clusterIP
+		                $NewRow.IP = $svc.status.loadbalancer.ingress.ip
+		                $NewRow.Reigon = $Row.spec.template.spec.nodeselector.'topology.kubernetes.io/region'
+		                $NewRow.GPU = $Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'
+		                $NewRow.Cores = $Row.spec.template.spec.domain.cpu.cores
+		                $NewRow.RAM = $Row.spec.template.spec.domain.resources.requests.memory
+		                $NewRow.Storage = $Row.spec.datavolumetemplates.spec.pvc.resources.requests.storage
+                        $NewRow.CreationTime = get-date $($Row.metadata.creationtimestamp) -Format 'MM/dd/yyy hh:mmtt'
+                        $NewRow.Running = [bool]$Row.status.conditions.status
+                        $NewRow.Namespace = $Row.metadata.namespace
+		                $Table.Rows.Add($NewRow)
+	                }
 
-        $DataGridView.DataSource = $table
-        $dataGridView.columns[1].Visible = $false
-        $DataGridView.AutoResizeColumns()
-        $DataGridView.Refresh()
+                $DataGridView.DataSource = $table
+                $dataGridView.columns[1].Visible = $false
+                $DataGridView.AutoResizeColumns()
+                $DataGridView.Refresh()
+            }
+
+        Else{[System.Windows.Forms.MessageBox]::Show("$($LookupErr.Exception)",'Unhandled Exception','OK','Error')}
     })
 
 function Load-KubeConfig
