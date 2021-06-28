@@ -107,7 +107,29 @@ $toolStripItem5.add_Click(
 $toolStripItem6.Text = "Connect via VNC";
 $toolStripItem6.add_Click(
     {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($Namespace) --proxy-only" -PassThru}
+        #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($Namespace) --proxy-only" -PassThru}
+        foreach ($Value in $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value)
+            {
+                $PInfoVar =
+                    @{
+                        'FileName' = "$env:ProgramData\k8s\virtctl.exe"
+                        'RedirectStandardOutput' = $true
+                        'UseShellExecute' = $false
+                        'CreateNoWindow' = $true
+                        'WindowStyle' = 'Hidden'
+                        'Arguments' = "vnc $Value -n $($Namespace) --proxy-only"
+                    }
+
+                $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
+                $P = New-Object System.Diagnostics.Process -Property @{'StartInfo' = $PInfo}
+                [void]$P.Start()
+                $Out = $p.StandardOutput.ReadLine()
+                switch([System.Windows.Forms.MessageBox]::Show("$($Value) can now be accessed via VNC at address localhost:$(($out | convertfrom-json).port)`n`nSelect OK to close the VNC connection proxy.",'VNC Connection','OK','Information'))
+                    {
+                        'OK'
+                            {$P.Kill()}
+                    }
+            }
     })
 
 [System.Windows.Forms.ToolStripItem]$toolStripItem7 = New-Object System.Windows.Forms.ToolStripMenuItem
