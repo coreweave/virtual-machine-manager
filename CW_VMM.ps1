@@ -238,6 +238,7 @@ $Button1.Add_Click(
                 $Button3.Add_Click(
                     {
                         $global:Namespace = $TextBox1.Text
+                        $Button2.PerformClick()
                         [void]$Form1.Close()
                     })
 
