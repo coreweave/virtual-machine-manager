@@ -292,10 +292,10 @@ $Button2.Add_Click(
                 $Table.Columns.Add("IP","System.String") | out-null
                 $Table.Columns.Add("Reigon","System.String") | out-null
                 $Table.Columns.Add("GPU","System.String") | out-null
-                $Table.Columns.Add("Cores","System.String") | out-null
+                $Table.Columns.Add("Cores","System.Int32") | out-null
                 $Table.Columns.Add("RAM","System.String") | out-null
                 $Table.Columns.Add("Storage","System.String") | out-null
-                $Table.Columns.Add("CreationTime","System.String") | out-null
+                $Table.Columns.Add("CreationTime","System.DateTime") | out-null
                 $Table.Columns.Add("Running","System.Boolean") | out-null
                 $Table.Columns.Add("Namespace","System.String") | out-null
 
@@ -308,10 +308,10 @@ $Button2.Add_Click(
 		                $NewRow.IP = $svc.status.loadbalancer.ingress.ip
 		                $NewRow.Reigon = $Row.spec.template.spec.nodeselector.'topology.kubernetes.io/region'
 		                $NewRow.GPU = $Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'
-		                $NewRow.Cores = $Row.spec.template.spec.domain.cpu.cores
+		                $NewRow.Cores = [int]$Row.spec.template.spec.domain.cpu.cores
 		                $NewRow.RAM = $Row.spec.template.spec.domain.resources.requests.memory
 		                $NewRow.Storage = $Row.spec.datavolumetemplates.spec.pvc.resources.requests.storage
-                        $NewRow.CreationTime = get-date $($Row.metadata.creationtimestamp) -Format 'MM/dd/yyy hh:mmtt'
+                        $NewRow.CreationTime = [DateTime]$(get-date $($Row.metadata.creationtimestamp) -Format 'MM/dd/yyy hh:mmtt')
                         $NewRow.Running = [bool]$Row.status.conditions.status
                         $NewRow.Namespace = $Row.metadata.namespace
 		                $Table.Rows.Add($NewRow)
