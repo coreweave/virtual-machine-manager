@@ -165,7 +165,7 @@ $ComboBox1.AutoSize = $true
 $ComboBox1.text                  = "Select action to invoke"
 $ListItems = @('Change Namespace','Load Kubeconfig','Update Binaries')
 $ListItems | ForEach-Object {[void] $ComboBox1.Items.Add($_)}
-$ComboBox1.location              = New-Object System.Drawing.Point(210,690)
+$ComboBox1.location              = New-Object System.Drawing.Point(170,690)
 $ComboBox1.Anchor                = 'Bottom,Left'
 $ComboBox1.Font                  = 'Microsoft Sans Serif,10'
 $ComboBox1.DropDownStyle         = 'DropDownList'
@@ -176,7 +176,7 @@ $CheckBox1.AutoSize              = $false
 $CheckBox1.width                 = 200
 $CheckBox1.height                = 20
 $CheckBox1.Anchor                = 'Left,bottom'
-$CheckBox1.location              = New-Object System.Drawing.Point(210,660)
+$CheckBox1.location              = New-Object System.Drawing.Point(170,660)
 $CheckBox1.Font                  = 'Microsoft Sans Serif,10'
 $CheckBox1.CheckState = 'Unchecked'
 
@@ -184,7 +184,7 @@ $Button1                         = New-Object system.Windows.Forms.Button
 $Button1.text                    = "Execute `n Selected Task"
 $Button1.width                   = 147
 $Button1.height                  = 40
-$Button1.location                = New-Object System.Drawing.Point(50,670)
+$Button1.location                = New-Object System.Drawing.Point(10,670)
 $Button1.Anchor                  = 'Bottom,Left'
 $Button1.Font                    = 'Microsoft Sans Serif,10'
 
@@ -192,7 +192,7 @@ $Button2                         = New-Object system.Windows.Forms.Button
 $Button2.text                    = "Load`nVirtual Machines"
 $Button2.width                   = 147
 $Button2.height                  = 40
-$Button2.location                = New-Object System.Drawing.Point(600,670)
+$Button2.location                = New-Object System.Drawing.Point(640,670)
 $Button2.Anchor                  = 'Bottom,Right'
 $Button2.Font                    = 'Microsoft Sans Serif,10'
 
@@ -200,7 +200,9 @@ $Form.controls.AddRange(@($dataGridView,$ComboBox1,$Button1,$Button2,$PictureBox
 
 $Button1.Add_Click(
     {
-        if($ComboBox1.SelectedItem -eq $ListItems[0])
+        if($ComboBox1.SelectedItem -eq $ListItems[0]){$Button2.PerformClick()}
+        
+        if($ComboBox1.SelectedItem -eq $ListItems[1])
             {
                 $Form1                            = New-Object system.Windows.Forms.Form
                 #$Form.AutoSize                   = $true
@@ -295,6 +297,7 @@ $Button2.Add_Click(
 
         $DataGridView.DataSource = $table
         $dataGridView.columns[1].Visible = $false
+        $DataGridView.AutoResizeColumns()
         $DataGridView.Refresh()
     })
 
