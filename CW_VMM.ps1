@@ -30,6 +30,7 @@ $logo = [System.Drawing.Image]::FromStream($ms, $true)
 $PictureBox1.image = $logo
 $PictureBox1.SizeMode    = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
 $PictureBox1.Anchor      = 'Top,Left,Right'
+$PictureBox1.add_Click({Start-Process "https://cloud.coreweave.com"})
 
 $dataGridView                        = New-Object System.Windows.Forms.DataGridView
 $dataGridView.text                   = "dataGridView"
