@@ -249,6 +249,7 @@ $Button1.Add_Click(
         if($ComboBox1.SelectedItem -eq $ListItems[2])
             {
                 Load-KubeConfig
+                $Button2.PerformClick()
             }
         if($ComboBox1.SelectedItem -eq $ListItems[3])
             {
