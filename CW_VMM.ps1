@@ -280,6 +280,7 @@ $Form.controls.AddRange(@($dataGridView,$Button1, $ComboBox1,$Button2,$PictureBo
 $Button2.Add_Click(
     {
         $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $Namespace") | convertfrom-json
+        $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $Namespace" |convertfrom-json)
         $global:Table = New-Object system.Data.DataTable "VirtualMachines"
         $Table.Columns.Add("Name","System.String") | out-null
         $Table.Columns.Add("clusterIP","System.String") | out-null
@@ -296,7 +297,7 @@ $Button2.Add_Click(
         foreach($Row in $Data.Items)
 	        {
 		        $NewRow = $Table.NewRow()
-                $Svc = (iex "$env:ProgramData\k8s\kubectl.exe get svc/$($Row.metadata.name)-tcp -o json -n $Namespace" |convertfrom-json)
+                $Svc = $SvcData.items | Where {$_.metadata.name -eq $($row.metadata.name+'-tcp')}
 		        $NewRow.Name = $Row.metadata.name
                 $NewRow.clusterIP = $svc.spec.clusterIP
 		        $NewRow.IP = $svc.status.loadbalancer.ingress.ip
