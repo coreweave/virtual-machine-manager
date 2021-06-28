@@ -301,7 +301,7 @@ function Load-KubeConfig
 
 if(!(test-path $env:userprofile\.kube\config -ErrorAction SilentlyContinue))
     {
-        switch([System.Windows.Forms.MessageBox]::Show("API Key not found.`nWould you like to load a key file?",'Configuration File','YesNo','Warning'))
+        switch([System.Windows.Forms.MessageBox]::Show($This,"Kubeconfig not found.`nWould you like to import a config file?",'Configuration File','YesNo','Warning'))
             {
                 'Yes'{Load-KubeConfig}
 
