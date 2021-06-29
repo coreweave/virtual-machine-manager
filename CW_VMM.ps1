@@ -274,47 +274,51 @@ $toolStripItem5.add_Click(
         $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -PassThru -ArgumentList "/v:$_" -FilePath mstsc.exe}
     })
 
-$toolStripItem6.add_Click(
-    {
-        #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($Namespace) --proxy-only" -PassThru}
-        foreach ($Value in $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value)
-            {
-                $PInfoVar =
-                    @{
-                        'FileName' = "$env:ProgramData\k8s\virtctl.exe"
-                        'RedirectStandardOutput' = $true
-                        'UseShellExecute' = $false
-                        'CreateNoWindow' = $true
-                        'WindowStyle' = 'Hidden'
-                        'Arguments' = "vnc $Value -n $($Namespace) --proxy-only"
-                    }
+$toolStripItem6.add_Click({Invoke-Virtctl -Action 'VNC'})
 
-                $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
-                $P = New-Object System.Diagnostics.Process -Property @{'StartInfo' = $PInfo}
-                [void]$P.Start()
-                $Out = $p.StandardOutput.ReadLine()
-                switch([System.Windows.Forms.MessageBox]::Show("$($Value) can now be accessed via VNC at address localhost:$(($out | convertfrom-json).port)`n`nSelect OK to close the VNC connection proxy.",'VNC Connection','OK','Information'))
-                    {
-                        'OK'
-                            {$P.Kill()}
-                    }
-            }
-    })
-
-$toolStripItem7.add_Click(
-    {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "console $_ -n $($Namespace)" -PassThru}
-    })
+$toolStripItem7.add_Click({Invoke-Virtctl -Action 'console'})
 
 function Invoke-Virtctl
     {
         Param([String]$Action)
         
-        $stdout = @()
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $Namespace")}
-        if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
-        Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
-        rv stdout
+        if($Action -eq 'VNC')
+            {
+                #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($Namespace) --proxy-only" -PassThru}
+                foreach ($Value in $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value)
+                    {
+                        $PInfoVar =
+                            @{
+                                'FileName' = "$env:ProgramData\k8s\virtctl.exe"
+                                'RedirectStandardOutput' = $true
+                                'UseShellExecute' = $false
+                                'CreateNoWindow' = $true
+                                'WindowStyle' = 'Hidden'
+                                'Arguments' = "vnc $Value -n $($Namespace) --proxy-only"
+                            }
+
+                        $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
+                        $P = New-Object System.Diagnostics.Process -Property @{'StartInfo' = $PInfo}
+                        [void]$P.Start()
+                        $Out = $p.StandardOutput.ReadLine()
+                        switch([System.Windows.Forms.MessageBox]::Show("$($Value) can now be accessed via VNC at address localhost:$(($out | convertfrom-json).port)`n`nSelect OK to close the VNC connection proxy.",'VNC Connection','OK','Information'))
+                            {
+                                'OK'
+                                    {$P.Kill()}
+                            }
+                    }
+            }
+
+        Elseif($Action -eq 'console'){$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "$Action $_ -n $($Namespace)" -PassThru}}
+        
+        Else
+            {
+                $stdout = @()
+                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $Namespace")}
+                if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
+                Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
+                rv stdout
+            }
     }
 
 function Load-KubeConfig
