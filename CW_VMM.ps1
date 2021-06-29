@@ -319,6 +319,7 @@ $Button2.Add_Click(
 
                 $DataGridView.DataSource = $table
                 $dataGridView.columns[1].Visible = $false
+                $datagridview.columns[9].SortMode = 'Automatic'
                 $DataGridView.AutoResizeColumns()
                 $DataGridView.Refresh()
             }
