@@ -57,24 +57,21 @@ $contextMenuStrip1=New-Object System.Windows.Forms.ContextMenuStrip
 $toolStripItem1.Text = "Start VM";
 $toolStripItem1.add_Click(
     {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe start $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to start.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
+        Invoke-Virtctl -Action 'start'
     })
 
 [System.Windows.Forms.ToolStripItem]$toolStripItem2 = New-Object System.Windows.Forms.ToolStripMenuItem
 $toolStripItem2.Text = "Stop VM";
 $toolStripItem2.add_Click(
     {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe stop $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to stop.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
+        Invoke-Virtctl -Action 'stop'
     })
 
 [System.Windows.Forms.ToolStripItem]$toolStripItem3 = New-Object System.Windows.Forms.ToolStripMenuItem
 $toolStripItem3.Text = "Restart VM";
 $toolStripItem3.add_Click(
     {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe restart $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to restart.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
+        Invoke-Virtctl -Action 'restart'
     })
 
 [System.Windows.Forms.ToolStripItem]$toolStripItem4 = New-Object System.Windows.Forms.ToolStripMenuItem
@@ -326,6 +323,17 @@ $Button2.Add_Click(
 
         Else{[System.Windows.Forms.MessageBox]::Show("$($LookupErr.Exception)",'Unhandled Exception','OK','Error')}
     })
+
+function Invoke-Virtctl
+    {
+        Param([String]$Action)
+        
+        $stdout = @()
+        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $Namespace")}
+        if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
+        Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
+        rv stdout
+    }
 
 function Load-KubeConfig
     {
