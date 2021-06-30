@@ -37,7 +37,6 @@ $dataGridView.text                   = "dataGridView"
 $dataGridView.width                  = 800
 $dataGridView.height                 = 600
 $dataGridView.location               = New-Object System.Drawing.Point(0,60)
-#$dataGridView.AutoSize               = $true
 $dataGridView.AutoSizeColumnsMode    = 'Fill'
 $dataGridView.AutoSizeRowsMode       = 'None'
 $DataGridView.AllowUserToResizeColumns = $true
@@ -47,102 +46,6 @@ $dataGridView.EditMode               = 'EditProgrammatically'
 $dataGridView.Anchor                 = 'Top,Left,Right,Bottom'
 $dataGridView.MultiSelect            = $true
 $dataGridView.Add_RowsAdded({ $dataGridView.Rows | %{ $_.HeaderCell.Value = ($_.Index +1).ToString();$datagridview.AutoResizeRowHeadersWidth(($_.Index),'AutoSizeToDisplayedHeaders')} })
-#$dataGridView.RowHeadersWidth = '100'
-
-#creation menu
-$contextMenuStrip1=New-Object System.Windows.Forms.ContextMenuStrip
-
-
-[System.Windows.Forms.ToolStripItem]$toolStripItem1 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem1.Text = "Start VM";
-$toolStripItem1.add_Click(
-    {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe start $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to start.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
-    })
-
-[System.Windows.Forms.ToolStripItem]$toolStripItem2 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem2.Text = "Stop VM";
-$toolStripItem2.add_Click(
-    {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe stop $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to stop.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
-    })
-
-[System.Windows.Forms.ToolStripItem]$toolStripItem3 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem3.Text = "Restart VM";
-$toolStripItem3.add_Click(
-    {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{(iex "$env:ProgramData\k8s\virtctl.exe restart $($_) -n $Namespace")}
-        [System.Windows.Forms.MessageBox]::Show("Instance has been scheduled to restart.`nLoad Virtual Machines again to check status.",'CoreWeave Virtual Machine Manager','OK','Information')
-    })
-
-[System.Windows.Forms.ToolStripItem]$toolStripItem4 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem4.Text = "Connect via SSH";
-$toolStripItem4.add_Click(
-    {
-        if(!((Get-WindowsCapability -Online -Name OpenSSH.Client*).State -eq 'Installed'))
-            {
-                switch([System.Windows.Forms.MessageBox]::Show("Windows OpenSSH Client is not enabled.`nWould you like to enable it now?",'OpenSSH Client','YesNo','Warning'))
-                    {
-                        'Yes'{Get-WindowsCapability -Online -Name OpenSSH.Client* | Add-WindowsCapability -Online | Out-Null}
-                        'No'{[System.Windows.Forms.MessageBox]::Show("Unable to connect.",'OpenSSH Client','OK','Error')}
-                    }
-            }
-
-        if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
-        Else{$Index = 2}
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh `$user@$_""" -PassThru}
-    })
-
-[System.Windows.Forms.ToolStripItem]$toolStripItem5 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem5.Text = "Connect via RDP";
-$toolStripItem5.add_Click(
-    {
-        if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
-        Else{$Index = 2}
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -PassThru -ArgumentList "/v:$_" -FilePath mstsc.exe}
-    })
-
-[System.Windows.Forms.ToolStripItem]$toolStripItem6 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem6.Text = "Connect via VNC";
-$toolStripItem6.add_Click(
-    {
-        #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($Namespace) --proxy-only" -PassThru}
-        foreach ($Value in $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value)
-            {
-                $PInfoVar =
-                    @{
-                        'FileName' = "$env:ProgramData\k8s\virtctl.exe"
-                        'RedirectStandardOutput' = $true
-                        'UseShellExecute' = $false
-                        'CreateNoWindow' = $true
-                        'WindowStyle' = 'Hidden'
-                        'Arguments' = "vnc $Value -n $($Namespace) --proxy-only"
-                    }
-
-                $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
-                $P = New-Object System.Diagnostics.Process -Property @{'StartInfo' = $PInfo}
-                [void]$P.Start()
-                $Out = $p.StandardOutput.ReadLine()
-                switch([System.Windows.Forms.MessageBox]::Show("$($Value) can now be accessed via VNC at address localhost:$(($out | convertfrom-json).port)`n`nSelect OK to close the VNC connection proxy.",'VNC Connection','OK','Information'))
-                    {
-                        'OK'
-                            {$P.Kill()}
-                    }
-            }
-    })
-
-[System.Windows.Forms.ToolStripItem]$toolStripItem7 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem7.Text = "Connect via Console";
-$toolStripItem7.add_Click(
-    {
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "console $_ -n $($Namespace)" -PassThru}
-    })
-
-$contextMenuStrip1.Items.AddRange(@($toolStripItem1,$toolStripItem2,$toolStripItem3,$toolStripItem4,$toolStripItem5,$toolStripItem6,$toolStripItem7))
-
-#creation event of mouse down on datagrid and show menu when click
 $dataGridView.add_MouseDown({
     $sender = $args[0]
     [System.Windows.Forms.MouseEventArgs]$e= $args[1]
@@ -158,6 +61,23 @@ $dataGridView.add_MouseDown({
 
     }
 })
+
+$contextMenuStrip1=New-Object System.Windows.Forms.ContextMenuStrip
+[System.Windows.Forms.ToolStripItem]$toolStripItem1 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem1.Text = "Start VM"
+[System.Windows.Forms.ToolStripItem]$toolStripItem2 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem2.Text = "Stop VM"
+[System.Windows.Forms.ToolStripItem]$toolStripItem3 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem3.Text = "Restart VM"
+[System.Windows.Forms.ToolStripItem]$toolStripItem4 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem4.Text = "Connect via SSH"
+[System.Windows.Forms.ToolStripItem]$toolStripItem5 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem5.Text = "Connect via RDP"
+[System.Windows.Forms.ToolStripItem]$toolStripItem6 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem6.Text = "Connect via VNC"
+[System.Windows.Forms.ToolStripItem]$toolStripItem7 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem7.Text = "Connect via Console"
+$contextMenuStrip1.Items.AddRange(@($toolStripItem1,$toolStripItem2,$toolStripItem3,$toolStripItem4,$toolStripItem5,$toolStripItem6,$toolStripItem7))
 
 $ComboBox1                       = New-Object system.Windows.Forms.ComboBox
 $ComboBox1.width                 = 200
@@ -197,7 +117,7 @@ $Button2.location                = New-Object System.Drawing.Point(640,670)
 $Button2.Anchor                  = 'Bottom,Right'
 $Button2.Font                    = 'Microsoft Sans Serif,10'
 
-$Form.controls.AddRange(@($dataGridView,$ComboBox1,$Button1,$Button2,$PictureBox1))
+$Form.controls.AddRange(@($dataGridView,$Button1,$ComboBox1,$Button2,$PictureBox1,$CheckBox1))
 
 $Button1.Add_Click(
     {
@@ -278,8 +198,6 @@ $Button1.Add_Click(
         Elseif(!($ComboBox1.SelectedItem)){[System.Windows.Forms.MessageBox]::Show("Please select an item from the list box.",'Selection Error','OK','Error')}
     })
 
-$Form.controls.AddRange(@($dataGridView,$Button1, $ComboBox1,$Button2,$PictureBox1,$CheckBox1))
-
 $Button2.Add_Click(
     {
         $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $Namespace" -ErrorVariable LookupErr) | convertfrom-json
@@ -292,10 +210,10 @@ $Button2.Add_Click(
                 $Table.Columns.Add("IP","System.String") | out-null
                 $Table.Columns.Add("Reigon","System.String") | out-null
                 $Table.Columns.Add("GPU","System.String") | out-null
-                $Table.Columns.Add("Cores","System.String") | out-null
+                $Table.Columns.Add("Cores","System.Int32") | out-null
                 $Table.Columns.Add("RAM","System.String") | out-null
                 $Table.Columns.Add("Storage","System.String") | out-null
-                $Table.Columns.Add("CreationTime","System.String") | out-null
+                $Table.Columns.Add("CreationTime","System.DateTime") | out-null
                 $Table.Columns.Add("Running","System.Boolean") | out-null
                 $Table.Columns.Add("Namespace","System.String") | out-null
 
@@ -308,10 +226,10 @@ $Button2.Add_Click(
 		                $NewRow.IP = $svc.status.loadbalancer.ingress.ip
 		                $NewRow.Reigon = $Row.spec.template.spec.nodeselector.'topology.kubernetes.io/region'
 		                $NewRow.GPU = $Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'
-		                $NewRow.Cores = $Row.spec.template.spec.domain.cpu.cores
+		                $NewRow.Cores = [int]$Row.spec.template.spec.domain.cpu.cores
 		                $NewRow.RAM = $Row.spec.template.spec.domain.resources.requests.memory
 		                $NewRow.Storage = $Row.spec.datavolumetemplates.spec.pvc.resources.requests.storage
-                        $NewRow.CreationTime = get-date $($Row.metadata.creationtimestamp) -Format 'MM/dd/yyy hh:mmtt'
+                        $NewRow.CreationTime = [DateTime]$(get-date $($Row.metadata.creationtimestamp) -Format 'MM/dd/yyy hh:mmtt')
                         $NewRow.Running = [bool]$Row.status.conditions.status
                         $NewRow.Namespace = $Row.metadata.namespace
 		                $Table.Rows.Add($NewRow)
@@ -319,12 +237,89 @@ $Button2.Add_Click(
 
                 $DataGridView.DataSource = $table
                 $dataGridView.columns[1].Visible = $false
+                $datagridview.columns[9].SortMode = 'Automatic'
                 $DataGridView.AutoResizeColumns()
                 $DataGridView.Refresh()
             }
 
         Else{[System.Windows.Forms.MessageBox]::Show("$($LookupErr.Exception)",'Unhandled Exception','OK','Error')}
     })
+
+$toolStripItem1.add_Click({Invoke-Virtctl -Action 'start'})
+
+$toolStripItem2.add_Click({Invoke-Virtctl -Action 'stop'})
+
+$toolStripItem3.add_Click({Invoke-Virtctl -Action 'restart'})
+
+$toolStripItem4.add_Click(
+    {
+        if(!((Get-WindowsCapability -Online -Name OpenSSH.Client*).State -eq 'Installed'))
+            {
+                switch([System.Windows.Forms.MessageBox]::Show("Windows OpenSSH Client is not enabled.`nWould you like to enable it now?",'OpenSSH Client','YesNo','Warning'))
+                    {
+                        'Yes'{Get-WindowsCapability -Online -Name OpenSSH.Client* | Add-WindowsCapability -Online | Out-Null}
+                        'No'{[System.Windows.Forms.MessageBox]::Show("Unable to connect.",'OpenSSH Client','OK','Error')}
+                    }
+            }
+
+        if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
+        Else{$Index = 2}
+        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh `$user@$_""" -PassThru}
+    })
+
+$toolStripItem5.add_Click(
+    {
+        if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
+        Else{$Index = 2}
+        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -PassThru -ArgumentList "/v:$_" -FilePath mstsc.exe}
+    })
+
+$toolStripItem6.add_Click({Invoke-Virtctl -Action 'VNC'})
+
+$toolStripItem7.add_Click({Invoke-Virtctl -Action 'console'})
+
+function Invoke-Virtctl
+    {
+        Param([String]$Action)
+        
+        if($Action -eq 'VNC')
+            {
+                #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($Namespace) --proxy-only" -PassThru}
+                foreach ($Value in $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value)
+                    {
+                        $PInfoVar =
+                            @{
+                                'FileName' = "$env:ProgramData\k8s\virtctl.exe"
+                                'RedirectStandardOutput' = $true
+                                'UseShellExecute' = $false
+                                'CreateNoWindow' = $true
+                                'WindowStyle' = 'Hidden'
+                                'Arguments' = "vnc $Value -n $($Namespace) --proxy-only"
+                            }
+
+                        $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
+                        $P = New-Object System.Diagnostics.Process -Property @{'StartInfo' = $PInfo}
+                        [void]$P.Start()
+                        $Out = $p.StandardOutput.ReadLine()
+                        switch([System.Windows.Forms.MessageBox]::Show("$($Value) can now be accessed via VNC at address localhost:$(($out | convertfrom-json).port)`n`nSelect OK to close the VNC connection proxy.",'VNC Connection','OK','Information'))
+                            {
+                                'OK'
+                                    {$P.Kill()}
+                            }
+                    }
+            }
+
+        Elseif($Action -eq 'console'){$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "$Action $_ -n $($Namespace)" -PassThru}}
+        
+        Else
+            {
+                $stdout = @()
+                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $Namespace")}
+                if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
+                Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
+                rv stdout
+            }
+    }
 
 function Load-KubeConfig
     {
