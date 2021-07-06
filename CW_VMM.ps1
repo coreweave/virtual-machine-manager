@@ -70,14 +70,16 @@ $toolStripItem2.Text = "Stop VM"
 [System.Windows.Forms.ToolStripItem]$toolStripItem3 = New-Object System.Windows.Forms.ToolStripMenuItem
 $toolStripItem3.Text = "Restart VM"
 [System.Windows.Forms.ToolStripItem]$toolStripItem4 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem4.Text = "Connect via SSH"
+$toolStripItem4.Text = "Delete VM"
 [System.Windows.Forms.ToolStripItem]$toolStripItem5 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem5.Text = "Connect via RDP"
+$toolStripItem5.Text = "Connect via SSH"
 [System.Windows.Forms.ToolStripItem]$toolStripItem6 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem6.Text = "Connect via VNC"
+$toolStripItem6.Text = "Connect via RDP"
 [System.Windows.Forms.ToolStripItem]$toolStripItem7 = New-Object System.Windows.Forms.ToolStripMenuItem
-$toolStripItem7.Text = "Connect via Console"
-$contextMenuStrip1.Items.AddRange(@($toolStripItem1,$toolStripItem2,$toolStripItem3,$toolStripItem4,$toolStripItem5,$toolStripItem6,$toolStripItem7))
+$toolStripItem7.Text = "Connect via VNC"
+[System.Windows.Forms.ToolStripItem]$toolStripItem8 = New-Object System.Windows.Forms.ToolStripMenuItem
+$toolStripItem8.Text = "Connect via Console"
+$contextMenuStrip1.Items.AddRange(@($toolStripItem1,$toolStripItem2,$toolStripItem3,$toolStripItem4,$toolStripItem5,$toolStripItem6,$toolStripItem7,$toolStripItem8))
 
 $ComboBox1                       = New-Object system.Windows.Forms.ComboBox
 $ComboBox1.width                 = 200
@@ -245,13 +247,15 @@ $Button2.Add_Click(
         Else{[System.Windows.Forms.MessageBox]::Show("$($LookupErr.Exception)",'Unhandled Exception','OK','Error')}
     })
 
-$toolStripItem1.add_Click({Invoke-Virtctl -Action 'start'})
+$toolStripItem1.add_Click({Invoke-k8ctl -Action 'start'})
 
-$toolStripItem2.add_Click({Invoke-Virtctl -Action 'stop'})
+$toolStripItem2.add_Click({Invoke-k8ctl -Action 'stop'})
 
-$toolStripItem3.add_Click({Invoke-Virtctl -Action 'restart'})
+$toolStripItem3.add_Click({Invoke-k8ctl -Action 'restart'})
 
-$toolStripItem4.add_Click(
+$toolStripItem4.add_Click({Invoke-k8ctl -Action 'delete'})
+
+$toolStripItem5.add_Click(
     {
         if(!((Get-WindowsCapability -Online -Name OpenSSH.Client*).State -eq 'Installed'))
             {
@@ -267,18 +271,18 @@ $toolStripItem4.add_Click(
         $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh `$user@$_""" -PassThru}
     })
 
-$toolStripItem5.add_Click(
+$toolStripItem6.add_Click(
     {
         if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
         Else{$Index = 2}
         $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -PassThru -ArgumentList "/v:$_" -FilePath mstsc.exe}
     })
 
-$toolStripItem6.add_Click({Invoke-Virtctl -Action 'VNC'})
+$toolStripItem7.add_Click({Invoke-k8ctl -Action 'VNC'})
 
-$toolStripItem7.add_Click({Invoke-Virtctl -Action 'console'})
+$toolStripItem8.add_Click({Invoke-k8ctl -Action 'console'})
 
-function Invoke-Virtctl
+function Invoke-k8ctl
     {
         Param([String]$Action)
         
@@ -309,7 +313,21 @@ function Invoke-Virtctl
                     }
             }
 
-        Elseif($Action -eq 'console'){$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "$Action $_ -n $($Namespace)" -PassThru}}
+        Elseif($Action -eq 'console'){$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($Namespace)""" -PassThru}}
+
+        Elseif($Action -eq 'delete')
+            {
+                switch([System.Windows.Forms.MessageBox]::Show("This action will delete:`n`n$($dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value.ForEach({$_+[System.Environment]::NewLine}))`nAre you sure you want to perform this action?",'CoreWeave Virtual Machine Manager','YesNo','Warning'))
+                    {
+                        'Yes'
+                            {
+                                $stdout = @()
+                                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $Namespace")}
+                                if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
+                                Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
+                            }
+                    }
+            }
         
         Else
             {
