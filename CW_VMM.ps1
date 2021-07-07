@@ -322,9 +322,11 @@ function Invoke-k8ctl
                         'Yes'
                             {
                                 $stdout = @()
-                                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $Namespace")}
+                                $Delete = @()
+                                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $Namespace");$Delete += Invoke-RestMethod -Uri "https://apps.coreweave.com/api/kubeops/v1/clusters/default/namespaces/$($namespace)/releases/$($_)?purge=true" -Method Delete -Headers $header}
                                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
+                                rv stdout,delete
                             }
                     }
             }
@@ -405,5 +407,6 @@ $Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToStri
 [bool]$IsInternal = (gcim msft_Netipaddress -namespace root/StandardCimv2 -Property IPAddress -Filter "InterfaceAlias = 'Ethernet' and AddressFamily = 2").IPAddress -match '^(10\.135\.(?:1(?:9[2-9])|2(?:0[0-7]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.135\.(?:2(?:0[8-9]|1[0-9]|2[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[4-9]|5[0-9]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$'
 if($IsInternal){$CheckBox1.CheckState = 'Checked'}
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
 
 [void]$Form.ShowDialog()
