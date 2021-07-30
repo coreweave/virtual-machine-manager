@@ -147,7 +147,7 @@ $Button1.Add_Click(
                 $TextBox1.location               = New-Object System.Drawing.Point(0,10)
                 $TextBox1.Font                   = 'Microsoft Sans Serif,10'
                 $TextBox1.Autosize               = $false
-                $TextBox1.Text = $Namespace
+                $TextBox1.Text = $global:Namespace
                 $TextBox1.TextAlign = 'Center'
                 $TextBox1.Anchor = 'Top,Bottom,Left,Right'
 
@@ -178,7 +178,7 @@ $Button1.Add_Click(
             {
                 if(!(test-path $env:ProgramData\k8s -ErrorAction SilentlyContinue)){New-Item -Path $env:ProgramData -Name k8s -ItemType Directory -Force | out-null}
                 Invoke-WebRequest -UseBasicParsing -Uri "https://dl.k8s.io/release/$(Invoke-RestMethod -Uri "https://dl.k8s.io/release/stable.txt")/bin/windows/amd64/kubectl.exe" -OutFile $env:ProgramData\k8s\kubectl.exe
-                Invoke-WebRequest -Uri $((Invoke-restmethod https://api.github.com/repos/kubevirt/kubevirt/releases)[0].assets.browser_download_url.Where({$_ -like '*virtctl-*-windows-amd64.exe'}))  -OutFile $env:ProgramData\k8s\virtctl.exe
+                Invoke-WebRequest -Uri $((Invoke-restmethod https://api.github.com/repos/kubevirt/kubevirt/releases/latest).assets.browser_download_url.Where({$_ -like '*virtctl-*-windows-amd64.exe'}))  -OutFile $env:ProgramData\k8s\virtctl.exe
             }
 
         if($ComboBox1.SelectedItem -eq $ListItems[4])
@@ -187,7 +187,7 @@ $Button1.Add_Click(
                 $SaveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
                 $SaveFileDialog.initialDirectory = $($env:USERPROFILE + '\Documents')
                 $SaveFileDialog.filter = "Comma Separated Value File (*.csv) | *.csv|All files (*.*)|*.*"
-                $SaveFileDialog.FileName = "$($Namespace+'_VDI_'+((get-date).tofiletime()))"
+                $SaveFileDialog.FileName = "$($global:Namespace+'_VDI_'+((get-date).tofiletime()))"
                 $SaveFileDialog.CheckPathExists = $true
                 [void]$SaveFileDialog.ShowDialog()
                 if($SaveFileDialog.FileName  -match [regex]::Escape('\'))
@@ -202,10 +202,10 @@ $Button1.Add_Click(
 
 $Button2.Add_Click(
     {
-        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $Namespace" -ErrorVariable LookupErr) | convertfrom-json
+        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $global:Namespace" -ErrorVariable LookupErr) | convertfrom-json
         if(!($LookupErr))
             {
-                $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $Namespace" |convertfrom-json)
+                $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $global:Namespace" |convertfrom-json)
                 $global:Table = New-Object system.Data.DataTable "VirtualMachines"
                 $Table.Columns.Add("Name","System.String") | out-null
                 $Table.Columns.Add("clusterIP","System.String") | out-null
@@ -288,7 +288,7 @@ function Invoke-k8ctl
         
         if($Action -eq 'VNC')
             {
-                #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($Namespace) --proxy-only" -PassThru}
+                #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($global:Namespace) --proxy-only" -PassThru}
                 foreach ($Value in $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value)
                     {
                         $PInfoVar =
@@ -298,7 +298,7 @@ function Invoke-k8ctl
                                 'UseShellExecute' = $false
                                 'CreateNoWindow' = $true
                                 'WindowStyle' = 'Hidden'
-                                'Arguments' = "vnc $Value -n $($Namespace) --proxy-only"
+                                'Arguments' = "vnc $Value -n $($global:Namespace) --proxy-only"
                             }
 
                         $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
@@ -313,7 +313,7 @@ function Invoke-k8ctl
                     }
             }
 
-        Elseif($Action -eq 'console'){$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($Namespace)""" -PassThru}}
+        Elseif($Action -eq 'console'){$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
 
         Elseif($Action -eq 'delete')
             {
@@ -323,7 +323,7 @@ function Invoke-k8ctl
                             {
                                 $stdout = @()
                                 $Delete = @()
-                                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $Namespace");$Delete += Invoke-RestMethod -Uri "https://apps.coreweave.com/api/kubeops/v1/clusters/default/namespaces/$($namespace)/releases/$($_)?purge=true" -Method Delete -Headers $header}
+                                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace");($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace")}
                                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                                 rv stdout,delete
@@ -334,7 +334,7 @@ function Invoke-k8ctl
         Else
             {
                 $stdout = @()
-                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $Namespace")}
+                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout
@@ -396,13 +396,13 @@ if(!(test-path $env:ProgramData\k8s\virtctl.exe -ErrorAction SilentlyContinue))
                 'Yes'
                     {
                         if(!(test-path $env:ProgramData\k8s -ErrorAction SilentlyContinue)){New-Item -Path $env:ProgramData -Name k8s -ItemType Directory -Force | out-null}
-                        Invoke-WebRequest -Uri $((Invoke-restmethod https://api.github.com/repos/kubevirt/kubevirt/releases)[0].assets.browser_download_url.Where({$_ -like '*virtctl-*-windows-amd64.exe'}))  -OutFile $env:ProgramData\k8s\virtctl.exe
+                        Invoke-WebRequest -Uri $((Invoke-restmethod https://api.github.com/repos/kubevirt/kubevirt/releases/latest).assets.browser_download_url.Where({$_ -like '*virtctl-*-windows-amd64.exe'}))  -OutFile $env:ProgramData\k8s\virtctl.exe
                     }
                 'No'{[System.Windows.Forms.MessageBox]::Show("Virtual Machines cannot be controlled without Virtctl.",'Virtctl','OK','Error')}
             }
     }
 
-$Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
+$global:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
 
 [bool]$IsInternal = (gcim msft_Netipaddress -namespace root/StandardCimv2 -Property IPAddress -Filter "InterfaceAlias = 'Ethernet' and AddressFamily = 2").IPAddress -match '^(10\.135\.(?:1(?:9[2-9])|2(?:0[0-7]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.135\.(?:2(?:0[8-9]|1[0-9]|2[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[4-9]|5[0-9]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$'
 if($IsInternal){$CheckBox1.CheckState = 'Checked'}
