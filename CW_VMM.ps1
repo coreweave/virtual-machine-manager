@@ -41,7 +41,7 @@ $dataGridView.AutoSizeColumnsMode    = 'Fill'
 $dataGridView.AutoSizeRowsMode       = 'None'
 $DataGridView.AllowUserToResizeColumns = $true
 $DataGridView.AllowUserToResizeRows = $true
-$dataGridView.SelectionMode          = 'FullRowSelect'
+$dataGridView.SelectionMode          = 'RowHeaderSelect'
 $dataGridView.EditMode               = 'EditProgrammatically'
 $dataGridView.Anchor                 = 'Top,Left,Right,Bottom'
 $dataGridView.MultiSelect            = $true
@@ -208,7 +208,7 @@ $Button2.Add_Click(
                 $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $global:Namespace" |convertfrom-json)
                 $global:Table = New-Object system.Data.DataTable "VirtualMachines"
                 $Table.Columns.Add("Name","System.String") | out-null
-                $Table.Columns.Add("clusterIP","System.String") | out-null
+                $Table.Columns.Add("InternalIP","System.String") | out-null
                 $Table.Columns.Add("IP","System.String") | out-null
                 $Table.Columns.Add("Reigon","System.String") | out-null
                 $Table.Columns.Add("GPU","System.String") | out-null
@@ -224,7 +224,8 @@ $Button2.Add_Click(
 		                $NewRow = $Table.NewRow()
                         $Svc = $SvcData.items | Where {$_.metadata.name -eq $($row.metadata.name+'-tcp')}
 		                $NewRow.Name = $Row.metadata.name
-                        $NewRow.clusterIP = $svc.spec.clusterIP
+                        if($svc.spec.selector){$NewRow.InternalIP = $svc.spec.clusterIP}
+                        Else{$NewRow.InternalIP = $svc.status.loadbalancer.ingress.ip}
 		                $NewRow.IP = $svc.status.loadbalancer.ingress.ip
 		                $NewRow.Reigon = $Row.spec.template.spec.nodeselector.'topology.kubernetes.io/region'
 		                $NewRow.GPU = $Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'
@@ -268,14 +269,14 @@ $toolStripItem5.add_Click(
 
         if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
         Else{$Index = 2}
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh `$user@$_""" -PassThru}
+        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh `$user@$_""" -PassThru}
     })
 
 $toolStripItem6.add_Click(
     {
         if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
         Else{$Index = 2}
-        $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -PassThru -ArgumentList "/v:$_" -FilePath mstsc.exe}
+        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -PassThru -ArgumentList "/v:$_" -FilePath mstsc.exe}
     })
 
 $toolStripItem7.add_Click({Invoke-k8ctl -Action 'VNC'})
@@ -288,8 +289,8 @@ function Invoke-k8ctl
         
         if($Action -eq 'VNC')
             {
-                #$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($global:Namespace) --proxy-only" -PassThru}
-                foreach ($Value in $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value)
+                #$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($global:Namespace) --proxy-only" -PassThru}
+                foreach ($Value in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value)
                     {
                         $PInfoVar =
                             @{
@@ -313,17 +314,17 @@ function Invoke-k8ctl
                     }
             }
 
-        Elseif($Action -eq 'console'){$dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
+        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
 
         Elseif($Action -eq 'delete')
             {
-                switch([System.Windows.Forms.MessageBox]::Show("This action will delete:`n`n$($dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value.ForEach({$_+[System.Environment]::NewLine}))`nAre you sure you want to perform this action?",'CoreWeave Virtual Machine Manager','YesNo','Warning'))
+                switch([System.Windows.Forms.MessageBox]::Show("This action will delete:`n`n$($dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value.ForEach({$_+[System.Environment]::NewLine}))`nAre you sure you want to perform this action?",'CoreWeave Virtual Machine Manager','YesNo','Warning'))
                     {
                         'Yes'
                             {
                                 $stdout = @()
                                 $Delete = @()
-                                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace");($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace")}
+                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace");($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace")}
                                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                                 rv stdout,delete
@@ -334,7 +335,7 @@ function Invoke-k8ctl
         Else
             {
                 $stdout = @()
-                $dataGridView.selectedRows.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}
+                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout

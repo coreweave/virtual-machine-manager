@@ -18,12 +18,31 @@ $stream.Write($iconBytes, 0, $iconBytes.Length);
 $iconImage       = [System.Drawing.Image]::FromStream($stream, $true)
 $Form.Icon       = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $stream).GetHIcon())
 
+$Groupbox8                       = New-Object system.Windows.Forms.Groupbox
+$Groupbox8.height                = 20
+$Groupbox8.width                 = 344
+$Groupbox8.text                  = "Instance Name"
+$Groupbox8.location              = New-Object System.Drawing.Point(8,0)
+$Groupbox8.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10) 
+$Groupbox8.Anchor = 'Top,Left'
+$Groupbox8.AutoSize = 'GrowAndShrink'
+
+$TextBox1                        = New-Object system.Windows.Forms.TextBox
+$TextBox1.multiline              = $false
+$TextBox1.width                  = 250
+$TextBox1.height                 = 25
+$TextBox1.location               = New-Object System.Drawing.Point(5,24)
+$TextBox1.Font                   = 'Microsoft Sans Serif,10'
+$TextBox1.Autosize               = $false
+$TextBox1.text = $((Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/adjective")+'-'+(Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/noun") -join '')
+
+$Groupbox8.Controls.AddRange(@($TextBox1))
 
 $Groupbox1                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox1.height                = 20
 $Groupbox1.width                 = 344
 $Groupbox1.text                  = "Reigon"
-$Groupbox1.location              = New-Object System.Drawing.Point(8,5)
+$Groupbox1.location              = New-Object System.Drawing.Point(8,70)
 $Groupbox1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10) 
 $Groupbox1.Anchor = 'Top,Left'
 $Groupbox1.AutoSize = 'GrowAndShrink'
@@ -35,17 +54,17 @@ $ComboBox1.location              = New-Object System.Drawing.Point(5,0)
 $ComboBox1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $ComboBox1.Anchor = 'Left'
 $ComboBox1.AutoSize = $true
-$Options.Reigon| ForEach-Object {[void] $comboBox1.Items.Add($_)}
+$hw.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
 $comboBox1.text                  = "Reigon"
 $combobox1.DropDownStyle         = 'DropDownList'
 
 $Groupbox1.controls.AddRange(@($ComboBox1))
 
 $Groupbox2                       = New-Object system.Windows.Forms.Groupbox
-$Groupbox2.height                = 20
+$Groupbox2.height                = 100
 $Groupbox2.width                 = 344
 $Groupbox2.text                  = "Operating System Image"
-$Groupbox2.location              = New-Object System.Drawing.Point(8,80)
+$Groupbox2.location              = New-Object System.Drawing.Point(8,140)
 $Groupbox2.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10) 
 $Groupbox2.Anchor = 'Top,Left'
 $Groupbox2.AutoSize = 'GrowAndShrink'
@@ -53,11 +72,10 @@ $Groupbox2.AutoSize = 'GrowAndShrink'
 $ComboBox2                       = New-Object system.Windows.Forms.ComboBox
 $ComboBox2.width                 = 250
 $ComboBox2.height                = 10
-$ComboBox2.location              = New-Object System.Drawing.Point(5,0)
+$ComboBox2.location              = New-Object System.Drawing.Point(5,50)
 $ComboBox2.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $ComboBox2.Anchor = 'Left'
 $ComboBox2.AutoSize = $true
-$Options.OS.Replace('External Source','Custom Source')| ForEach-Object {[void] $comboBox2.Items.Add($_)}
 $comboBox2.text                  = "Operating System"
 $combobox2.DropDownStyle         = 'DropDownList'
 $Combobox2.Add_SelectedValueChanged(
@@ -78,15 +96,68 @@ $Combobox2.Add_SelectedValueChanged(
             {
                 #just kill me bro
             }
+
+        if($RadioButton6.Checked -eq $true)
+            {
+                $Size = ($private.items | where {$_.metadata.name -eq $($ComboBox2.SelectedItem)}).status.capacity.storage.trimend('Gi') | select -First 1
+                $NumericUpDown2.Minimum = $Size
+                $NumericUpDown2.Value = $Size
+                
+            }
+        if($RadioButton5.Checked -eq $true)
+            {
+                $Size = ($pvc.items | where {$_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem -Replace ' ','_')}).status.capacity.storage.trimend('Gi')[0]
+                $NumericUpDown2.Minimum = $Size
+                $NumericUpDown2.Value = $Size
+                
+            }
     })
 
-$Groupbox2.controls.AddRange(@($ComboBox2))
+$RadioButton5                    = New-Object system.Windows.Forms.RadioButton
+$RadioButton5.text               = "CoreWeave"
+$RadioButton5.AutoSize           = $true
+$RadioButton5.width              = 0
+$RadioButton5.height             = 0
+$RadioButton5.location           = New-Object System.Drawing.Point(10,20)
+$RadioButton5.Font               = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$RadioButton5.Anchor = 'Top,Left'
+$RadioButton5.AutoSize = 'GrowAndShrink'
+$RadioButton5.Add_CheckedChanged(
+    {
+        if($RadioButton5.Checked -eq $true)
+            {
+                $combobox2.items.Clear()
+                $pvc.items.metadata.labels.'images.coreweave.cloud/name' -Replace '_',' ' | sort -Unique | ForEach-Object {[void] $comboBox2.Items.Add($_)}
+            }
+    
+    })
+$RadioButton5.Checked = $true
+
+$RadioButton6                    = New-Object system.Windows.Forms.RadioButton
+$RadioButton6.text               = "Private"
+$RadioButton6.AutoSize           = $true
+$RadioButton6.width              = 0
+$RadioButton6.height             = 0
+$RadioButton6.location           = New-Object System.Drawing.Point(150,20)
+$RadioButton6.Font               = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$RadioButton6.Anchor = 'Top,Left'
+$RadioButton6.AutoSize = 'GrowAndShrink'
+$RadioButton6.Add_CheckedChanged(
+    {
+        if($RadioButton6.Checked -eq $true)
+            {
+                $combobox2.items.Clear()
+                ($private.items | where {$_.spec.volumeMode -eq 'block'}).metadata.name | ForEach-Object {[void] $comboBox2.Items.Add($_)}
+            }
+    })
+
+$Groupbox2.controls.AddRange(@($ComboBox2,$RadioButton5,$RadioButton6))
 
 $Groupbox3                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox3.height                = 100
 $Groupbox3.width                 = 344
 $Groupbox3.text                  = "Hardware"
-$Groupbox3.location              = New-Object System.Drawing.Point(8,160)
+$Groupbox3.location              = New-Object System.Drawing.Point(8,240)
 $Groupbox3.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $groupbox3.Anchor = 'Top,Left' 
 $Groupbox3.AutoSize = 'GrowAndShrink'
@@ -115,7 +186,7 @@ $RadioButton1.Add_CheckedChanged(
         if($RadioButton1.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                $Options.CPUInstance| ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                ($hw | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 $Label1.Enabled = $false
                 $NumericUpDown1.Enabled = $false
                 $NumericUpDown1.Refresh()
@@ -123,6 +194,7 @@ $RadioButton1.Add_CheckedChanged(
                 $Label1.Refresh()
                 
             }
+
     
     })
 
@@ -140,7 +212,7 @@ $RadioButton2.Add_CheckedChanged(
         if($RadioButton2.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                $Options.GPUInstance| ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                $hw.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 $Label1.Enabled = $true
                 $NumericUpDown1.Enabled = $true
                 $Combobox3.Refresh()
@@ -172,17 +244,16 @@ $RadioButton1.Checked = $true
 $Groupbox3.controls.AddRange(@($RadioButton1,$RadioButton2,$ComboBox3,$Label1,$NumericUpDown1))
 
 $Groupbox4                       = New-Object system.Windows.Forms.Groupbox
-$Groupbox4.height                = 50
+$Groupbox4.height                = 20
 $Groupbox4.width                 = 344
 $Groupbox4.text                  = "Root Storage (Gi) "
-$Groupbox4.location              = New-Object System.Drawing.Point(8,270)
+$Groupbox4.location              = New-Object System.Drawing.Point(8,340)
 $Groupbox4.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $Groupbox4.Anchor = 'Top,Left'
 $Groupbox4.AutoSize = 'GrowAndShrink'
 
 $NumericUpDown2 = New-Object 'System.Windows.Forms.NumericUpDown'
-$NumericUpDown2.Minimum = $Options.Storage
-$NumericUpDown2.height                = 50
+$NumericUpDown2.height                = 0
 $NumericUpDown2.width                 = 50
 $NumericUpDown2.location              = New-Object System.Drawing.Point(5,25)
 $NumericUpDown2.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -195,18 +266,19 @@ $Groupbox5                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox5.height                = 75
 $Groupbox5.width                 = 344
 $Groupbox5.text                  = "Shared Filesystem"
-$Groupbox5.location              = New-Object System.Drawing.Point(8,350)
+$Groupbox5.location              = New-Object System.Drawing.Point(8,410)
 $Groupbox5.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $Groupbox5.Anchor = 'Top,Left'
 $Groupbox5.AutoSize = 'GrowAndShrink'
 
-$TextBox1                        = New-Object system.Windows.Forms.TextBox
-$TextBox1.multiline              = $false
-$TextBox1.width                  = 250
-$TextBox1.height                 = 25
-$TextBox1.location               = New-Object System.Drawing.Point(5,45)
-$TextBox1.Font                   = 'Microsoft Sans Serif,10'
-$TextBox1.Autosize               = $false
+$ListBox1                        = New-Object system.Windows.Forms.ListBox
+$ListBox1.text                   = "listBox"
+$ListBox1.width                  = 250
+$ListBox1.height                 = 50
+$ListBox1.location               = New-Object System.Drawing.Point(5,45)
+($private.items | where {$_.spec.accessmodes -eq 'ReadWriteMany'}).metadata.name | ForEach-Object {[void] $ListBox1.Items.Add($_)}
+$ListBox1.SelectionMode = 'MultiExtended'
+$ListBox1.ScrollAlwaysVisible = $true
 
 $CheckBox1                       = New-Object system.Windows.Forms.CheckBox
 $CheckBox1.text                  = "Enabled"
@@ -220,28 +292,26 @@ $CheckBox1.Add_CheckStateChanged(
     {
         if($CheckBox1.CheckState -eq 'Checked')
             {
-                $TextBox1.Clear()
-                $TextBox1.Enabled = $true
-                $TextBox1.Refresh()
+                $ListBox1.Enabled = $true
+                $ListBox1.Refresh()
             }
 
         if($CheckBox1.CheckState -eq 'UnChecked')
             {
-                $TextBox1.Clear()
-                $TextBox1.Text = 'PVC Name'
-                $TextBox1.Enabled = $false
-                $TextBox1.Refresh()
+                $ListBox1.ClearSelected()
+                $ListBox1.Enabled = $false
+                $ListBox1.Refresh()
             }
     })
 $CheckBox1.CheckState            = 'UnChecked'
 
-$Groupbox5.Controls.AddRange(@($CheckBox1,$TextBox1))
+$Groupbox5.Controls.AddRange(@($CheckBox1,$ListBox1))
 
 $Groupbox6                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox6.height                = 75
 $Groupbox6.width                 = 344
 $Groupbox6.text                  = "VM State"
-$Groupbox6.location              = New-Object System.Drawing.Point(8,450)
+$Groupbox6.location              = New-Object System.Drawing.Point(8,510)
 $Groupbox6.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $Groupbox6.Anchor = 'Top,Left'
 $Groupbox6.AutoSize = 'GrowAndShrink'
@@ -370,7 +440,7 @@ $Groupbox7                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox7.height                = 75
 $Groupbox7.width                 = 344
 $Groupbox7.text                  = "User Account"
-$Groupbox7.location              = New-Object System.Drawing.Point(8,620)
+$Groupbox7.location              = New-Object System.Drawing.Point(8,670)
 $Groupbox7.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $Groupbox7.Anchor = 'Top,Left'
 $Groupbox7.AutoSize = 'GrowAndShrink'
@@ -392,18 +462,50 @@ $Button2                         = New-Object system.Windows.Forms.Button
 $Button2.text                    = "Deploy"
 $Button2.width                   = 70
 $Button2.height                  = 40
-$Button2.location                = New-Object System.Drawing.Point(205,730)
+$Button2.location                = New-Object System.Drawing.Point(205,760)
 $Button2.Font                    = New-Object System.Drawing.Font('Microsoft Sans Serif',12)
 $Button2.Anchor = 'Top,Bottom,Left,Right'
 $Button2.AutoSize = $true
 $Button2.AutoSizeMode = 'GrowAndShrink'
 $Button2.Add_Click({[void]$Form.Close()})
 
-$Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Button2))
+$Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Groupbox8 ,$Button2))
 
+if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContinue))
+    {
+        switch([System.Windows.Forms.MessageBox]::Show("No cached data found for hardware types.`nWould you like to cache data now?",'Hardware Cache','YesNo','Warning'))
+            {
+                'Yes'
+                    {
+                        if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
+                        (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                    }
 
+                'No'
+                    {
+                        [System.Windows.Forms.MessageBox]::Show("No hawrdware types available to display.",'Hardware Cache','OK','Error')
+                    }
+            }
+    }
 
+Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).CreationTime -le (get-date).AddDays(-7))
+    {
+        switch([System.Windows.Forms.MessageBox]::Show("Cached hardware types looks a bit old.`nWould you like to update now?",'Hardware Cache','YesNo','Warning'))
+            {
+                'Yes'
+                    {
+                        if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
+                        (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                    }
+            }
+    }
 
+Else{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
+
+$pvc = (kubectl get pvc -n vd-images -l images.coreweave.cloud/latest=true,images.coreweave.cloud/private=false --sort-by=.spec.storageClassName -o json) |convertfrom-json
+
+$private = (kubectl get pvc -o json) | convertfrom-json
 
 [void]$Form.ShowDialog()
-
