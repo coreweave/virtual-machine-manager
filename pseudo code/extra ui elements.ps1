@@ -1,6 +1,43 @@
 ﻿Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
+if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContinue))
+    {
+        switch([System.Windows.Forms.MessageBox]::Show("No cached data found for hardware types.`nWould you like to cache data now?",'Hardware Cache','YesNo','Warning'))
+            {
+                'Yes'
+                    {
+                        if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
+                        (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                    }
+
+                'No'
+                    {
+                        [System.Windows.Forms.MessageBox]::Show("No hawrdware types available to display.",'Hardware Cache','OK','Error')
+                    }
+            }
+    }
+
+Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).CreationTime -le (get-date).AddDays(-7))
+    {
+        switch([System.Windows.Forms.MessageBox]::Show("Cached hardware types looks a bit old.`nWould you like to update now?",'Hardware Cache','YesNo','Warning'))
+            {
+                'Yes'
+                    {
+                        if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
+                        (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                    }
+            }
+    }
+
+Else{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
+
+$pvc = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -n vd-images -l images.coreweave.cloud/latest=true,images.coreweave.cloud/private=false --sort-by=.spec.storageClassName -o json") |convertfrom-json
+
+$private = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -o json") | convertfrom-json
+
 $Form                            = New-Object system.Windows.Forms.Form
 $Form.ClientSize                 = New-Object System.Drawing.Point(515,850)
 $Form.text                       = "Virtual Machine Editor"
@@ -20,7 +57,7 @@ $Form.Icon       = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.
 
 $Groupbox8                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox8.height                = 20
-$Groupbox8.width                 = 350
+$Groupbox8.width                 = 480
 $Groupbox8.text                  = "Instance Name"
 $Groupbox8.location              = New-Object System.Drawing.Point(8,0)
 $Groupbox8.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10) 
@@ -40,7 +77,7 @@ $Groupbox8.Controls.AddRange(@($TextBox1))
 
 $Groupbox1                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox1.height                = 20
-$Groupbox1.width                 = 350
+$Groupbox1.width                 = 480
 $Groupbox1.text                  = "Reigon"
 $Groupbox1.location              = New-Object System.Drawing.Point(8,70)
 $Groupbox1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10) 
@@ -62,7 +99,7 @@ $Groupbox1.controls.AddRange(@($ComboBox1))
 
 $Groupbox2                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox2.height                = 100
-$Groupbox2.width                 = 350
+$Groupbox2.width                 = 480
 $Groupbox2.text                  = "Operating System Image"
 $Groupbox2.location              = New-Object System.Drawing.Point(8,140)
 $Groupbox2.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10) 
@@ -90,11 +127,6 @@ $Combobox2.Add_SelectedValueChanged(
             {
                 $CheckBox3.Enabled = $false
                 $CheckBox3.Refresh()
-            }
-
-        if($ComboBox2.SelectedItem -eq 'Custom Source')
-            {
-                #just kill me bro
             }
 
         if($RadioButton6.Checked -eq $true)
@@ -155,7 +187,7 @@ $Groupbox2.controls.AddRange(@($ComboBox2,$RadioButton5,$RadioButton6))
 
 $Groupbox3                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox3.height                = 100
-$Groupbox3.width                 = 350
+$Groupbox3.width                 = 480
 $Groupbox3.text                  = "Hardware"
 $Groupbox3.location              = New-Object System.Drawing.Point(8,240)
 $Groupbox3.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -220,32 +252,76 @@ $RadioButton2.Add_CheckedChanged(
                 $NumericUpDown1.Refresh()
             }
     })
+$Radiobutton2.Checked = $true
 
-$Label1                          = New-Object system.Windows.Forms.Label
-$Label1.text                     = "GPU Count"
-$Label1.AutoSize                 = $true
-$Label1.width                    = 25
-$Label1.height                   = 10
-$Label1.location                 = New-Object System.Drawing.Point(265,21)
-$Label1.Font                     = 'Microsoft Sans Serif,10'
+$Groupbox10                       = New-Object system.Windows.Forms.Groupbox
+$Groupbox10.height                = 58
+$Groupbox10.width                 = 60
+$Groupbox10.text                  = "GPUs"
+$Groupbox10.location              = New-Object System.Drawing.Point(270,18)
+$Groupbox10.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$Groupbox10.Anchor = 'Top,Left'
+$Groupbox10.AutoSize = $false
 
 $NumericUpDown1 = New-Object 'System.Windows.Forms.NumericUpDown'
 $NumericUpDown1.Minimum = 1
 $NumericUpDown1.Maximum = 8
 $NumericUpDown1.height                = 50
 $NumericUpDown1.width                 = 50
-$NumericUpDown1.location              = New-Object System.Drawing.Point(265,50)
+$NumericUpDown1.location              = New-Object System.Drawing.Point(5,20)
 $NumericUpDown1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $NumericUpDown1.Anchor = 'Top,Left'
 $NumericUpDown1.AutoSize = 'GrowAndShrink'
 
-$RadioButton1.Checked = $true
+$Groupbox10.controls.AddRange(@($NumericUpDown1))
 
-$Groupbox3.controls.AddRange(@($RadioButton1,$RadioButton2,$ComboBox3,$Label1,$NumericUpDown1))
+$Groupbox11                       = New-Object system.Windows.Forms.Groupbox
+$Groupbox11.height                = 58
+$Groupbox11.width                 = 65
+$Groupbox11.text                  = "vCPUs"
+$Groupbox11.location              = New-Object System.Drawing.Point(335,18)
+$Groupbox11.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$Groupbox11.Anchor = 'Top,Left'
+$Groupbox11.AutoSize = $false
+
+$NumericUpDown3 = New-Object 'System.Windows.Forms.NumericUpDown'
+$NumericUpDown3.Minimum = 1
+$NumericUpDown3.Maximum = 96
+$NumericUpDown3.height                = 50
+$NumericUpDown3.width                 = 50
+$NumericUpDown3.location              = New-Object System.Drawing.Point(5,20)
+$NumericUpDown3.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$NumericUpDown3.Anchor = 'Top,Left'
+$NumericUpDown3.AutoSize = 'GrowAndShrink'
+
+$Groupbox11.controls.AddRange(@($NumericUpDown3))
+
+$Groupbox12                       = New-Object system.Windows.Forms.Groupbox
+$Groupbox12.height                = 58
+$Groupbox12.width                 = 60
+$Groupbox12.text                  = "RAM"
+$Groupbox12.location              = New-Object System.Drawing.Point(405,18)
+$Groupbox12.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$Groupbox12.Anchor = 'Top,Left'
+$Groupbox12.AutoSize = $false
+
+$NumericUpDown4 = New-Object 'System.Windows.Forms.NumericUpDown'
+$NumericUpDown4.Minimum = 10
+$NumericUpDown4.Maximum = 1000
+$NumericUpDown4.height                = 50
+$NumericUpDown4.width                 = 50
+$NumericUpDown4.location              = New-Object System.Drawing.Point(5,20)
+$NumericUpDown4.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$NumericUpDown4.Anchor = 'Top,Left'
+$NumericUpDown4.AutoSize = 'GrowAndShrink'
+
+$Groupbox12.controls.AddRange(@($NumericUpDown4))
+
+$Groupbox3.controls.AddRange(@($RadioButton1,$RadioButton2,$ComboBox3,$Groupbox10,$Groupbox11,$Groupbox12))
 
 $Groupbox4                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox4.height                = 20
-$Groupbox4.width                 = 170
+$Groupbox4.width                 = 235
 $Groupbox4.text                  = "Root Storage (Gi) "
 $Groupbox4.location              = New-Object System.Drawing.Point(8,340)
 $Groupbox4.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -264,9 +340,9 @@ $Groupbox4.Controls.AddRange(@($NumericUpDown2))
 
 $Groupbox9                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox9.height                = 70
-$Groupbox9.width                 = 170
+$Groupbox9.width                 = 235
 $Groupbox9.text                  = "Network"
-$Groupbox9.location              = New-Object System.Drawing.Point(188,340)
+$Groupbox9.location              = New-Object System.Drawing.Point(253,340)
 $Groupbox9.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $Groupbox9.Anchor = 'Top,Left'
 $Groupbox9.AutoSize = $false
@@ -280,6 +356,7 @@ $RadioButton7.location           = New-Object System.Drawing.Point(10,15)
 $RadioButton7.Font               = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $RadioButton7.Anchor = 'Top,Left'
 $RadioButton7.AutoSize = 'GrowAndShrink'
+$RadioButton7.Checked = $true
 
 $RadioButton8                    = New-Object system.Windows.Forms.RadioButton
 $RadioButton8.text               = "Internal"
@@ -296,7 +373,7 @@ $Groupbox9.Controls.AddRange(@($RadioButton7,$RadioButton8))
 
 $Groupbox5                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox5.height                = 75
-$Groupbox5.width                 = 350
+$Groupbox5.width                 = 480
 $Groupbox5.text                  = "Shared Filesystem"
 $Groupbox5.location              = New-Object System.Drawing.Point(8,410)
 $Groupbox5.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -341,7 +418,7 @@ $Groupbox5.Controls.AddRange(@($CheckBox1,$ListBox1))
 
 $Groupbox6                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox6.height                = 75
-$Groupbox6.width                 = 350
+$Groupbox6.width                 = 480
 $Groupbox6.text                  = "VM State"
 $Groupbox6.location              = New-Object System.Drawing.Point(8,510)
 $Groupbox6.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -470,7 +547,7 @@ $Groupbox6.Controls.AddRange(@($Checkbox3,$CheckBox2,$Radiobutton3,$RadioButton4
 
 $Groupbox7                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox7.height                = 75
-$Groupbox7.width                 = 350
+$Groupbox7.width                 = 480
 $Groupbox7.text                  = "User Account"
 $Groupbox7.location              = New-Object System.Drawing.Point(8,670)
 $Groupbox7.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -502,42 +579,5 @@ $Button2.AutoSizeMode = 'GrowAndShrink'
 $Button2.Add_Click({[void]$Form.Close()})
 
 $Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Groupbox8,$Groupbox9,$Button2))
-
-if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContinue))
-    {
-        switch([System.Windows.Forms.MessageBox]::Show("No cached data found for hardware types.`nWould you like to cache data now?",'Hardware Cache','YesNo','Warning'))
-            {
-                'Yes'
-                    {
-                        if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
-                        (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
-                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
-                    }
-
-                'No'
-                    {
-                        [System.Windows.Forms.MessageBox]::Show("No hawrdware types available to display.",'Hardware Cache','OK','Error')
-                    }
-            }
-    }
-
-Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).CreationTime -le (get-date).AddDays(-7))
-    {
-        switch([System.Windows.Forms.MessageBox]::Show("Cached hardware types looks a bit old.`nWould you like to update now?",'Hardware Cache','YesNo','Warning'))
-            {
-                'Yes'
-                    {
-                        if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
-                        (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
-                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
-                    }
-            }
-    }
-
-Else{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
-
-$pvc = (kubectl get pvc -n vd-images -l images.coreweave.cloud/latest=true,images.coreweave.cloud/private=false --sort-by=.spec.storageClassName -o json) |convertfrom-json
-
-$private = (kubectl get pvc -o json) | convertfrom-json
 
 [void]$Form.ShowDialog()
