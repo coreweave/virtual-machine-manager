@@ -269,7 +269,7 @@ $toolStripItem5.add_Click(
             {
                 $vs = (iex "$env:ProgramData\k8s\kubectl.exe get vs $($vm) -n $global:Namespace -o json" -ErrorVariable stderr -ErrorAction SilentlyContinue) | ConvertFrom-Json -ErrorAction SilentlyContinue
                 if($stderr){[System.Windows.Forms.MessageBox]::Show("$($stderr)",'CoreWeave Virtual Machine Manager','OK','Error');rv stderr}
-                Deploy-VS -Edit:$true -InputObject $vs
+                Else{Deploy-VS -Edit:$true -InputObject $vs}
             }
     })
 
@@ -1099,7 +1099,23 @@ $(if($CheckBox1.Checked -eq $true)
         $Stdout = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.yaml -n $global:Namespace" -ErrorVariable stderr -ErrorAction SilentlyContinue
         $stdout += $stderr
         if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Error')}
-        Else{[System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Information')}
+        Else
+            {
+                if($Edit)
+                    {
+                        if(!($numericupdown2.value -match ($private.items | where {$_.metadata.name -eq $vs.metadata.name}).spec.resources.requests.storage.trimend('Gi')))
+                            {
+                                $VSPVC = ($private.items | where {$_.metadata.name -eq $vs.metadata.name})
+                                $VSPVC.spec.resources.requests.storage = $($numericupdown2.value.tostring()+'Gi')
+                                $VSPVC | ConvertTo-Json -Depth 10 | out-file $env:temp\deploy.json
+                                $out = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.json -n $global:Namespace" -ErrorVariable err -ErrorAction SilentlyContinue
+                                $out += $err
+                                if($out | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Error')}
+                                Else{[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Information')}
+                            }
+                    }
+                [System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Information')
+            }
         [GC]::Collect()
         Remove-Item "$($env:temp)\deploy.yaml" -Force
     })
