@@ -64,3 +64,7 @@ The local proxy can be connected to with any VNC Viewer, such as [RealVNC](https
 
 Selecting "Ok" at the VNC Connection prompt will terminate the VNC connection proxy.
 
+### Deploy a VS
+
+![2021-09-18 23-06-57](https://user-images.githubusercontent.com/80500072/133914588-f9b76069-271f-4be8-b49e-a0b10ccb7cc7.gif)
+
