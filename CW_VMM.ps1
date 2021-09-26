@@ -1112,6 +1112,8 @@ $(if($CheckBox1.Checked -eq $true)
                                 $out += $err
                                 if($out | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Information')}
+                                [GC]::Collect()
+                                Remove-Item "$env:temp\deploy.json" -Force
                             }
                     }
                 [System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Information')
