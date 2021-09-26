@@ -1127,6 +1127,7 @@ if($Edit)
         $Groupbox8.Enabled = $false
         $Groupbox2.Enabled = $false
         $Groupbox7.Enabled = $false
+        $Groupbox6.Enabled = $false
         $TextBox1.text = $InputObject.metadata.name
         $Combobox1.SelectedItem = $InputObject.spec.region
         if($InputObject.spec.resources.cpu)
@@ -1158,6 +1159,13 @@ if($Edit)
         if($InputObject.spec.storage.root.source.pvc.namespace -eq 'vd-images'){$RadioButton5.Checked = $true}
         Elseif($InputObject.spec.storage.root.source.pvc.namespace -eq $global:Namespace){$RadioButton6.Checked = $true}
 
+        $username = $InputObject.spec.users.username
+        $password = $InputObject.spec.users.password
+        [securestring]$secStringPassword = ConvertTo-SecureString $password -AsPlainText -Force
+        [pscredential]$cred = New-Object System.Management.Automation.PSCredential ($username, $secStringPassword)
+
+        if($InputObject.spec.initializeRunning -eq $true){$RadioButton3.Checked = $true}
+        Elseif($InputObject.spec.initializeRunning -eq $false){$Radiobutton4.Checked = $true}
     }
 
 [void]$Form.ShowDialog()
