@@ -286,7 +286,7 @@ $toolStripItem6.add_Click(
 
         if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
         Else{$Index = 2}
-        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh `$user@$_""" -PassThru}
+        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-noprofile -nologo -command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh -o StrictHostKeychecking=no `$user@$_""" -PassThru}
     })
 
 $toolStripItem7.add_Click(
@@ -331,7 +331,7 @@ function Invoke-k8ctl
                     }
             }
 
-        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
+        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-noprofile -nologo -Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
 
         Elseif($Action -eq 'delete')
             {
