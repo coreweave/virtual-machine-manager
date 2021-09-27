@@ -372,9 +372,13 @@ function Load-KubeConfig
                 if(!(test-path $env:userprofile\.kube)){New-Item -ItemType Directory -Path $env:userprofile -Name .kube -Force | out-null}
                 if(test-path $env:userprofile\.kube\config -ErrorAction SilentlyContinue)
                     {
-                        switch([System.Windows.Forms.MessageBox]::Show("$env:userprofile\.kube\config will be overwritten.`nSelect 'Yes' to confirm.",'Configuration File','YesNo','Warning'))
+                        switch([System.Windows.Forms.MessageBox]::Show("$env:userprofile\.kube\config will be re-named.`nSelect 'Yes' to confirm.",'Configuration File','YesNo','Warning'))
                             {
-                                'Yes'{Move-Item $OpenFileDialog.FileName -Destination $env:userprofile\.kube\config -Force}
+                                'Yes'
+                                    {
+                                        Rename-Item -Path "$env:userprofile\.kube\config" -NewName "config.$((get-date).ToFileTime())" -Force
+                                        Copy-Item $OpenFileDialog.FileName -Destination $env:userprofile\.kube\config -Force
+                                    }
                                 'No'{[System.Windows.Forms.MessageBox]::Show("Not using selected configuration file.",'Configuration File','OK','Warning')}
                             }
                     }
