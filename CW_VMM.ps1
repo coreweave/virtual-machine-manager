@@ -82,7 +82,7 @@ $toolStripItem7.Text = "Connect via RDP"
 $toolStripItem8.Text = "Connect via VNC"
 [System.Windows.Forms.ToolStripItem]$toolStripItem9 = New-Object System.Windows.Forms.ToolStripMenuItem
 $toolStripItem9.Text = "Connect via Console"
-$contextMenuStrip1.Items.AddRange(@($toolStripItem1,$toolStripItem2,$toolStripItem3,$toolStripItem4,$toolStripItem5,$toolStripItem6,$toolStripItem7,$toolStripItem8))
+$contextMenuStrip1.Items.AddRange(@($toolStripItem1,$toolStripItem2,$toolStripItem3,$toolStripItem4,$toolStripItem5,$toolStripItem6,$toolStripItem7,$toolStripItem8,$toolStripItem9))
 
 $ComboBox1                       = New-Object system.Windows.Forms.ComboBox
 $ComboBox1.width                 = 200
