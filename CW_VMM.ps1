@@ -470,6 +470,8 @@ Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).LastAccessTime -le (get-date)
                         (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
                         $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
                     }
+
+                'No'{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
             }
     }
 
@@ -530,7 +532,7 @@ $ComboBox1.location              = New-Object System.Drawing.Point(5,0)
 $ComboBox1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $ComboBox1.Anchor = 'Left'
 $ComboBox1.AutoSize = $true
-$hw.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
+$global:HW.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
 $comboBox1.text                  = "Reigon"
 $combobox1.DropDownStyle         = 'DropDownList'
 
@@ -691,7 +693,7 @@ $RadioButton1.Add_CheckedChanged(
         if($RadioButton1.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                ($hw | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                ($global:HW | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $false
                 $NumericUpDown1.Enabled = $false
                 $NumericUpDown1.Refresh()
@@ -717,7 +719,7 @@ $RadioButton2.Add_CheckedChanged(
         if($RadioButton2.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                $hw.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                $global:HW.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $true
                 $NumericUpDown1.Enabled = $true
                 $Combobox3.Refresh()
