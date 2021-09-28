@@ -302,7 +302,11 @@ $toolStripItem9.add_Click({Invoke-k8ctl -Action 'console'})
 
 function Invoke-k8ctl
     {
-        Param([String]$Action)
+        Param
+            (
+                [String]$Action,
+                [String]$Instance
+            )
         
         if($Action -eq 'VNC')
             {
@@ -352,7 +356,8 @@ function Invoke-k8ctl
         Else
             {
                 $stdout = @()
-                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}
+                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $global:Namespace")}
+                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout
@@ -1121,6 +1126,14 @@ $(if($CheckBox1.Checked -eq $true)
                             }
                     }
                 [System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Information')
+                if($Edit -and (($inputobject.status.conditions | sort lastTransitionTime  -Descending | select -First 1).Status))
+                    {
+                        switch([System.Windows.Forms.MessageBox]::Show("Instance $($inputobject.metadata.name) needs to be restarted for changes to take effect.`nWould you like to restart now?",'Virtual Machine Editor','YesNo','Warning'))
+                            {
+                                'Yes'{Invoke-k8ctl -Action restart -Instance $($inputobject).metadata.name}
+                                'No'{}
+                            }
+                    }
             }
         [GC]::Collect()
         Remove-Item "$($env:temp)\deploy.yaml" -Force
