@@ -510,7 +510,7 @@ $TextBox1.height                 = 25
 $TextBox1.location               = New-Object System.Drawing.Point(5,24)
 $TextBox1.Font                   = 'Microsoft Sans Serif,10'
 $TextBox1.Autosize               = $false
-if(!($Edit)){$TextBox1.text = $((Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/adjective")+'-'+(Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/noun") -join '')}
+if(!($Edit)){$TextBox1.text = $((Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/adjective" -TimeoutSec 5)+'-'+(Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/noun" -TimeoutSec 5) -join '')}
 
 $Groupbox8.Controls.AddRange(@($TextBox1))
 
