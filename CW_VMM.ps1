@@ -460,7 +460,7 @@ if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContin
             }
     }
 
-Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).CreationTime -le (get-date).AddDays(-7))
+Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).LastAccessTime -le (get-date).AddDays(-7))
     {
         switch([System.Windows.Forms.MessageBox]::Show("Cached hardware types looks a bit old.`nWould you like to update now?",'Hardware Cache','YesNo','Warning'))
             {
