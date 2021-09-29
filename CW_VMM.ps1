@@ -302,7 +302,11 @@ $toolStripItem9.add_Click({Invoke-k8ctl -Action 'console'})
 
 function Invoke-k8ctl
     {
-        Param([String]$Action)
+        Param
+            (
+                [String]$Action,
+                [String]$Instance
+            )
         
         if($Action -eq 'VNC')
             {
@@ -352,7 +356,8 @@ function Invoke-k8ctl
         Else
             {
                 $stdout = @()
-                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}
+                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $global:Namespace")}
+                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout
@@ -460,7 +465,7 @@ if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContin
             }
     }
 
-Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).CreationTime -le (get-date).AddDays(-7))
+Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).LastAccessTime -le (get-date).AddDays(-7))
     {
         switch([System.Windows.Forms.MessageBox]::Show("Cached hardware types looks a bit old.`nWould you like to update now?",'Hardware Cache','YesNo','Warning'))
             {
@@ -470,6 +475,8 @@ Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).CreationTime -le (get-date).A
                         (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
                         $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
                     }
+
+                'No'{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
             }
     }
 
@@ -510,7 +517,7 @@ $TextBox1.height                 = 25
 $TextBox1.location               = New-Object System.Drawing.Point(5,24)
 $TextBox1.Font                   = 'Microsoft Sans Serif,10'
 $TextBox1.Autosize               = $false
-if(!($Edit)){$TextBox1.text = $((Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/adjective")+'-'+(Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/noun") -join '')}
+if(!($Edit)){$TextBox1.text = $((Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/adjective" -TimeoutSec 5)+'-'+(Invoke-RestMethod -UseBasicParsing -Uri "https://random-word-form.herokuapp.com/random/noun" -TimeoutSec 5) -join '')}
 
 $Groupbox8.Controls.AddRange(@($TextBox1))
 
@@ -530,7 +537,7 @@ $ComboBox1.location              = New-Object System.Drawing.Point(5,0)
 $ComboBox1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $ComboBox1.Anchor = 'Left'
 $ComboBox1.AutoSize = $true
-$hw.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
+$global:HW.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
 $comboBox1.text                  = "Reigon"
 $combobox1.DropDownStyle         = 'DropDownList'
 
@@ -691,7 +698,7 @@ $RadioButton1.Add_CheckedChanged(
         if($RadioButton1.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                ($hw | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                ($global:HW | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $false
                 $NumericUpDown1.Enabled = $false
                 $NumericUpDown1.Refresh()
@@ -717,7 +724,7 @@ $RadioButton2.Add_CheckedChanged(
         if($RadioButton2.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                $hw.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                $global:HW.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $true
                 $NumericUpDown1.Enabled = $true
                 $Combobox3.Refresh()
@@ -1119,6 +1126,14 @@ $(if($CheckBox1.Checked -eq $true)
                             }
                     }
                 [System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Information')
+                if($Edit -and (($inputobject.status.conditions | sort lastTransitionTime  -Descending | select -First 1).Status))
+                    {
+                        switch([System.Windows.Forms.MessageBox]::Show("Instance $($inputobject.metadata.name) needs to be restarted for changes to take effect.`nWould you like to restart now?",'Virtual Machine Editor','YesNo','Warning'))
+                            {
+                                'Yes'{Invoke-k8ctl -Action restart -Instance $($inputobject).metadata.name}
+                                'No'{}
+                            }
+                    }
             }
         [GC]::Collect()
         Remove-Item "$($env:temp)\deploy.yaml" -Force
