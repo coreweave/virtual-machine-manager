@@ -391,7 +391,8 @@ function Load-KubeConfig
                             {
                                 'Yes'
                                     {
-                                        Rename-Item -Path "$env:userprofile\.kube\config" -NewName "config.$((get-date).ToFileTime())" -Force
+                                        $account = (gc $env:userprofile\.kube\config | select-string '- name').ToString().TrimStart('- name: ')
+                                        Rename-Item -Path "$env:userprofile\.kube\config" -NewName "$($account).config" -Force
                                         Copy-Item $OpenFileDialog.FileName -Destination $env:userprofile\.kube\config -Force
                                     }
                                 'No'{[System.Windows.Forms.MessageBox]::Show("Not using selected configuration file.",'Configuration File','OK','Warning')}
