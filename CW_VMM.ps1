@@ -1,4 +1,13 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+﻿Add-Type -Name Window -Namespace Console -MemberDefinition '
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);'
+
+[Console.Window]::ShowWindow([Console.Window]::GetConsoleWindow(), 0)
+
+Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $Form                            = New-Object system.Windows.Forms.Form
