@@ -600,6 +600,7 @@ $Combobox2.Add_SelectedValueChanged(
                 $NumericUpDown2.Value = $Size
                 $Combobox4.Items.Clear()
                 (($pvc.items | where  {$_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem -Replace ' ','_')}).metadata.labels.'images.coreweave.cloud/features' | sort -Unique) | ForEach-Object {[void] $comboBox4.Items.Add($_)}
+                if($ComboBox2.SelectedItem -like 'Win*'){$Combobox4.Items.Add('Teradici')}
                 $combobox4.SelectedIndex = 0
                 
             }
@@ -892,7 +893,7 @@ $Groupbox5.Controls.AddRange(@($CheckBox1,$ListBox1))
 
 $Groupbox6                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox6.height                = 160
-$Groupbox6.width                 = 480
+$Groupbox6.width                 = 235
 $Groupbox6.text                  = "VM State"
 $Groupbox6.location              = New-Object System.Drawing.Point(8,510)
 $Groupbox6.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -1019,6 +1020,34 @@ $CheckBox2.Add_CheckStateChanged(
 $CheckBox2.CheckState            = 'UnChecked'
 
 $Groupbox6.Controls.AddRange(@($Checkbox3,$CheckBox2,$Radiobutton3,$RadioButton4,$NumericUpDown5,$Label2))
+
+$Groupbox10                       = New-Object system.Windows.Forms.Groupbox
+$Groupbox10.height                = 160
+$Groupbox10.width                 = 235
+$Groupbox10.text                  = "Instance Metadata"
+$Groupbox10.location              = New-Object System.Drawing.Point(253,510)
+$Groupbox10.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$Groupbox10.Anchor = 'Top,Left'
+$Groupbox10.AutoSize = $false
+
+$Button3                         = New-Object system.Windows.Forms.Button
+$Button3.text                    = "Add Software"
+$Button3.width                   = 150
+$Button3.height                  = 40
+$Button3.location                = New-Object System.Drawing.Point(5,20)
+$Button3.Font                    = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$Button3.Anchor = 'Top,Bottom,Left,Right'
+$Button3.AutoSize = $true
+$Button3.AutoSizeMode = 'GrowAndShrink'
+$Button3.Add_Click(
+    {
+        if($ComboBox2.Text -match '2019'){Invoke-SoftwareLoader -Choco}
+        Elseif($ComboBox2.Text -match 'Windows'){Invoke-SoftwareLoader -Choco -WinGet}
+        Elseif($ComboBox2.Text -match 'CentOS' -or $ComboBox2.Text -match 'Ubuntu'){Invoke-SoftwareLoader -Linux}
+        Else{Invoke-SoftwareLoader}
+    })
+
+$Groupbox10.Controls.AddRange(@($Button3))
 
 $Groupbox7                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox7.height                = 75
@@ -1214,7 +1243,7 @@ $Button2.Add_Click(
         Remove-Item "$($env:temp)\deployvs.json" -Force
     })
 
-$Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Groupbox8,$Groupbox9,$Button2))
+$Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Groupbox8,$Groupbox9,$Groupbox10,$Button2))
 
 if($Edit)
     {
@@ -1222,6 +1251,7 @@ if($Edit)
         $Groupbox2.Enabled = $false
         $Groupbox7.Enabled = $false
         $Groupbox6.Enabled = $false
+        $Groupbox10.Enabled = $false
         $TextBox1.text = $InputObject.metadata.name
         $Combobox1.SelectedItem = $InputObject.spec.region
         if($InputObject.spec.resources.cpu)
@@ -1265,5 +1295,79 @@ if($Edit)
 [void]$Form.ShowDialog()
 }
 
+function Invoke-SoftwareLoader
+    {
+
+        Param
+            (
+                [switch]$WinGet,
+                [switch]$Choco,
+                [switch]$Linux,
+                [System.Data.DataTable]$InputObject
+            )
+        
+        $Form6    = New-Object system.Windows.Forms.Form
+        $Form6.ClientSize                 = '400,400'
+        $Form6.text                       = "Additional Software"
+        $Form6.TopMost                    = $false
+        $Form6.Anchor = 'Top,Bottom,Left,Right'
+        $Form6.StartPosition = 'CenterScreen'
+        $stream  = New-Object IO.MemoryStream($iconBytes, 0, $iconBytes.Length)
+        $stream.Write($iconBytes, 0, $iconBytes.Length);
+        $iconImage       = [System.Drawing.Image]::FromStream($stream, $true)
+        $Form6.Icon       = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $stream).GetHIcon())
+
+        $DataGridView3                   = New-Object system.Windows.Forms.DataGridView
+        $DataGridView3.width             = 400
+        $DataGridView3.height            = 345
+        $DataGridView3.location          = New-Object System.Drawing.Point(0,0)
+        $DataGridView3.AutoSizeColumnsMode    = 'Fill'
+        $DataGridView3.Anchor                 = 'Top,Left,Right,Bottom'
+        $dataGridView3.Add_RowsAdded({ $dataGridView3.Rows | %{ $_.HeaderCell.Value = ($_.Index +1).ToString();$datagridview3.AutoResizeRowHeadersWidth(($_.Index),'AutoSizeToDisplayedHeaders') } })
+
+        $Button10 = New-Object system.Windows.Forms.Button
+        $Button10.text                    = "Save"
+        $Button10.width                   = 60
+        $Button10.height                  = 30
+        $Button10.Anchor                  = 'left,bottom'
+        $Button10.location                = New-Object System.Drawing.Point(10,360)
+        $Button10.Font                    = 'Microsoft Sans Serif,10'
+
+        $Button11 = New-Object system.Windows.Forms.Button
+        $Button11.text                    = "Clear"
+        $Button11.width                   = 60
+        $Button11.height                  = 30
+        $Button11.Anchor                  = 'right,bottom'
+        $Button11.location                = New-Object System.Drawing.Point(330,360)
+        $Button11.Font                    = 'Microsoft Sans Serif,10'
+
+        $DataTable = New-Object system.Data.DataTable "ArrayData"
+        $DataTable.Columns.Add("Chocolatey","System.String") | Out-Null
+        $DataTable.Columns.Add("WinGet","System.String") | Out-Null
+        $DataTable.Columns.Add("Apt/Yum Package","System.String") | Out-Null
+        if($InputObject){$DataTable += $InputObject}
+        
+        $DataGridView3.DataSource = $DataTable
+
+        $Form6.controls.AddRange(@($DataGridView3,$Button10,$Button11))
+
+        $DataGridView3 | out-host
+
+        if(!($Choco)){$DataGridView3.Columns[0].ReadOnly = $true}
+        if(!($WinGet)){$DataGridView3.Columns[1].ReadOnly = $true}
+        if(!($Linux)){$DataGridView3.Columns[2].ReadOnly = $true}
+
+        $Button10.Add_Click(
+            {           
+                [void]$Form6.Close()
+                
+            })
+
+        $Button11.Add_Click({$DataTable.Clear()})
+
+        [void]$Form6.ShowDialog()
+
+        Return $DataTable 
+    }
 
 [void]$Form.ShowDialog()
