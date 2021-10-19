@@ -296,7 +296,7 @@ $toolStripItem6.add_Click(
 
         if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
         Else{$Index = 2}
-        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-noprofile -nologo -command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh -o StrictHostKeychecking=no `$user@$_""" -PassThru}
+        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-noprofile -nologo -command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh -o StrictHostKeyChecking=no `$user@$_""" -PassThru}
     })
 
 $toolStripItem7.add_Click(
