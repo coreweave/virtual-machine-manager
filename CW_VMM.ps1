@@ -227,7 +227,7 @@ $Button2.Add_Click(
                 $Table.Columns.Add("InternalIP","System.String") | out-null
                 $Table.Columns.Add("IP","System.String") | out-null
                 $Table.Columns.Add("Reigon","System.String") | out-null
-                $Table.Columns.Add("GPU","System.String") | out-null
+                $Table.Columns.Add("Type","System.String") | out-null
                 $Table.Columns.Add("Cores","System.Int32") | out-null
                 $Table.Columns.Add("RAM","System.String") | out-null
                 $Table.Columns.Add("Storage","System.String") | out-null
@@ -244,7 +244,8 @@ $Button2.Add_Click(
                         Else{$NewRow.InternalIP = $svc.status.loadbalancer.ingress.ip}
 		                $NewRow.IP = $svc.status.loadbalancer.ingress.ip
 		                $NewRow.Reigon = $Row.spec.template.spec.nodeselector.'topology.kubernetes.io/region'
-		                $NewRow.GPU = $Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'
+		                if($Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'){$NewRow.Type = $($Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'+" {$($Row.spec.template.spec.domain.devices.gpus.name.Count)}")}
+                        Else{$NewRow.Type = $Row.spec.template.spec.nodeSelector.'node.coreweave.cloud/cpu'}
 		                $NewRow.Cores = [int]$Row.spec.template.spec.domain.cpu.cores
 		                $NewRow.RAM = $Row.spec.template.spec.domain.resources.requests.memory
 		                $NewRow.Storage = $Row.spec.datavolumetemplates.spec.pvc.resources.requests.storage
