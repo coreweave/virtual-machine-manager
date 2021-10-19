@@ -1052,70 +1052,134 @@ $Button2.AutoSize = $true
 $Button2.AutoSizeMode = 'GrowAndShrink'
 $Button2.Add_Click(
     {
-@"
-apiVersion: virtualservers.coreweave.com/v1alpha1
-kind: VirtualServer
-metadata:
-  name: $($TextBox1.text)
-spec:
-  region: $($ComboBox1.Text)
-  os:
-    type: $(if($ComboBox2.text -like '*win*'){'windows'};if($combobox2.Text -notlike '*win*'){'linux'})
-  resources:
-$(if($RadioButton2.Checked -eq $true)
-{
-"    gpu:
-      type: $($combobox3.text)
-      count: $($numericupdown1.value)
-    cpu:
-      count: $($NumericUpDown3.value)"}
-if($RadioButton1.Checked -eq $true)
-{
-"    cpu:
-      type: $($combobox3.text)
-      count: $($NumericUpDown3.value)"})
-    memory: $($numericupdown4.value)Gi
-  storage:
-    root:
-      size: $($numericupdown2.value)Gi
-      storageClassName: block-nvme-$($ComboBox1.text.ToLower())
-      source:
-$(if($RadioButton5.Checked -eq $true -and $Edit -ne $true)
-{
-"        pvc:
-          namespace: vd-images
-          name: $(($pvc.items | where {($_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem  -Replace ' ','_')) -and ($($_.metadata.labels.'images.coreweave.cloud/features') -eq $($combobox4.selecteditem))}).metadata.name | where{$_ -like "*$($ComboBox1.Text)"})"}
-if($RadioButton5.Checked -eq $true -and $Edit -eq $true)
-{
-"        pvc:
-          namespace: vd-images
-          name: $($inputobject.spec.storage.root.source.pvc.name)"}
-if($radiobutton6.Checked -eq $true -and $Edit -ne $true)
-{
-"        pvc:
-          namespace: $($global:namespace)
-          name: $($combobox2.text)"}
-if($radiobutton6.Checked -eq $true -and $Edit -eq $true)
-{
-"        pvc:
-          namespace: $($global:namespace)
-          name: $($inputobject.spec.storage.root.source.pvc.name)"})
-$(if($CheckBox1.Checked -eq $true)
-{"    filesystems:$($ListBox1.SelectedItems | %{
-"
-      - name: $($_)
-        spec:
-          persistentVolumeClaim:
-            claimName: $($_)"})"})
-  users:
-    - username: $($cred.UserName)
-      password: $($cred.GetNetworkCredential().Password)
-  network:
-    public: $(if($RadioButton7.Checked -eq $true){'true'};if($RadioButton8.Checked -eq $true){'false'})
-    directAttachLoadBalancerIP: true
-  initializeRunning: $(if($RadioButton3.Checked -eq $true){'true'};if($RadioButton4.Checked -eq $true){'false'})
-"@ -replace '\n\r','' | out-file $env:temp\deploy.yaml
-        $Stdout = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.yaml -n $global:Namespace" -ErrorVariable stderr -ErrorAction SilentlyContinue
+        if(!($Edit))
+            {
+                $json = @{}
+                $json.apiVersion = 'virtualservers.coreweave.com/v1alpha1'
+                $json.kind = 'VirtualServer'
+                $json.metadata = @{}
+                $json.metadata.name = $($TextBox1.text)
+                $json.metadata.namespace = $global:namespace
+                $json.metadata.annotations = @{}
+                $json.metadata.annotations.'external-dns.alpha.kubernetes.io/hostname' = "$($TextBox1.text).$($global:namespace).coreweave.cloud"
+                $json.spec = @{}
+                $json.spec.region = $($ComboBox1.Text)
+                $json.spec.os = @{}
+                if($ComboBox2.text -like '*win*'){$json.spec.os.type = 'windows'}
+                if($ComboBox2.text -notlike '*win*'){$json.spec.os.type = 'linux'}
+                $json.spec.resources = @{}
+                if($RadioButton2.Checked -eq $true)
+                    {
+                        $json.spec.resources.gpu = @{}
+                        $json.spec.resources.gpu.type = $($combobox3.text)
+                        $json.spec.resources.gpu.count = [int]$($numericupdown1.value)
+                    }
+                $json.spec.resources.cpu = @{}
+                $json.spec.resources.cpu.count = [int]$($NumericUpDown3.value)
+                if($RadioButton1.Checked -eq $true){$json.spec.resources.cpu.type = $($combobox3.text)}
+                $json.spec.resources.memory = "$($numericupdown4.value)Gi"
+                $json.spec.storage = @{}
+                $json.spec.storage.root = @{}
+                $json.spec.storage.root.size = "$($numericupdown2.value)Gi"
+                $json.spec.storage.root.storageClassName = "block-nvme-$($ComboBox1.text.ToLower())"
+                $json.spec.storage.root.source = @{}
+                $json.spec.storage.root.source.pvc = @{}
+                if($RadioButton5.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $(($pvc.items | where {($_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem  -Replace ' ','_')) -and ($($_.metadata.labels.'images.coreweave.cloud/features') -eq $($combobox4.selecteditem))}).metadata.name | where{$_ -like "*$($ComboBox1.Text)"})}
+                if($RadioButton5.Checked -eq $true -and $Edit -eq $true){$json.spec.storage.root.source.pvc.name = $($InputObject.spec.storage.root.source.pvc.name)}
+                if($RadioButton5.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = 'vd-images'}
+                if($radiobutton6.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $($combobox2.text)}
+                if($radiobutton6.Checked -eq $true -and $Edit -eq $true){$json.spec.storage.root.source.pvc.name = $($InputObject.spec.storage.root.source.pvc.name)}
+                if($RadioButton6.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = $global:namespace}
+                #add filesystems
+                if($CheckBox1.Checked -eq $true)
+                    {
+                        $filesystems = @()
+                        $($ListBox1.SelectedItems).ForEach(
+                            {   
+                                $Hash = @{}                     
+                                $Hash.name = $_
+                                $Hash.spec = @{}
+                                $Hash.spec.persistentVolumeClaim = @{}
+                                $Hash.spec.persistentVolumeClaim.claimName = $_
+                                $filesystems += $hash
+                            })
+                        $json.spec.storage.filesystems = $filesystems
+                    }
+                $users = @{}
+                $users.username = $($cred.UserName)
+                $users.password = $($cred.GetNetworkCredential().Password)
+                $json.spec.users = @($users)
+                $json.spec.network = @{}
+                $json.spec.network.directAttachLoadBalancerIP = $true
+                if($RadioButton7.Checked -eq $true){$json.spec.network.public = $true}
+                if($RadioButton8.Checked -eq $true){$json.spec.network.public = $false}
+                if($RadioButton3.Checked -eq $true){$json.spec.initializeRunning = $true}
+                if($RadioButton4.Checked -eq $true){$json.spec.initializeRunning = $false}
+                #$json.spec.cloudInit = ''
+            }
+        if(($Edit))
+            {
+                $json = $InputObject
+                $json.spec.region = $($ComboBox1.Text)
+                if($RadioButton2.Checked -eq $true)
+                    {
+                        if($json.spec.resources.cpu.type)
+                            {
+                                $json.spec.resources.cpu.psobject.Properties.Remove('type')
+                                $hash = @{}
+                                $hash.gpu = @{}
+                                $hash.gpu.type = $($combobox3.text)
+                                $hash.gpu.count = [int]$($numericupdown1.value)
+                                $json.spec.resources | add-member $hash
+                            }
+                        Else
+                            {
+                                $json.spec.resources.gpu.type = $($combobox3.text)
+                                $json.spec.resources.gpu.count = [int]$($numericupdown1.value)
+                            }
+                    }
+                $json.spec.resources.cpu.count = [int]$($NumericUpDown3.value)
+                if($RadioButton1.Checked -eq $true)
+                    {
+                        if(!($json.spec.resources.cpu.type))
+                            {
+                                $json.spec.resources.psobject.Properties.Remove('gpu')
+                                $hash = @{}
+                                $hash.type = $($combobox3.text)
+                                $json.spec.resources.cpu | Add-Member $hash
+                            }
+                        Else{$json.spec.resources.cpu.type = $($combobox3.text)}
+                    }
+                $json.spec.resources.memory = "$($numericupdown4.value)Gi"
+                $json.spec.storage.root.size = "$($numericupdown2.value)Gi"
+                $json.spec.storage.root.storageClassName = "block-nvme-$($ComboBox1.text.ToLower())"
+                if($CheckBox1.Checked -eq $true)
+                    {
+                        $filesystems = @()
+                        $($ListBox1.SelectedItems).ForEach(
+                            {   
+                                $Hash = @{}                     
+                                $Hash.name = $_
+                                $Hash.spec = @{}
+                                $Hash.spec.persistentVolumeClaim = @{}
+                                $Hash.spec.persistentVolumeClaim.claimName = $_
+                                $filesystems += $hash
+                            })
+                        if(!($json.spec.storage.filesystems))
+                            {
+                                $hash = @{}
+                                $hash.filesystems = $filesystems
+                                $json.spec.storage | Add-Member $hash
+                            }
+                        Else{$json.spec.storage.filesystems = $filesystems}
+                    }
+                if($RadioButton7.Checked -eq $true){$json.spec.network.public = $true}
+                if($RadioButton8.Checked -eq $true){$json.spec.network.public = $false}
+                $json = $json | select * -ExcludeProperty status
+
+            }
+        $($json | convertto-json -Depth 20) | out-file $env:temp\deployvs.json
+        $Stdout = iex ("$env:ProgramData\k8s\kubectl.exe apply -n $global:Namespace -f $env:temp\deployvs.json") -ErrorVariable stderr -ErrorAction SilentlyContinue
         $stdout += $stderr
         if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Error')}
         Else
@@ -1146,7 +1210,7 @@ $(if($CheckBox1.Checked -eq $true)
                     }
             }
         [GC]::Collect()
-        Remove-Item "$($env:temp)\deploy.yaml" -Force
+        Remove-Item "$($env:temp)\deployvs.json" -Force
     })
 
 $Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Groupbox8,$Groupbox9,$Button2))
