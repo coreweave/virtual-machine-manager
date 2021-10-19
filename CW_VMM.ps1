@@ -1136,7 +1136,7 @@ $(if($CheckBox1.Checked -eq $true)
                             }
                     }
                 [System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Information')
-                if($Edit -and (($inputobject.status.conditions | sort lastTransitionTime  -Descending | select -First 1).Status))
+                if($Edit -and (($inputobject.status.conditions.message.Contains('VirtualServerStarted'))))
                     {
                         switch([System.Windows.Forms.MessageBox]::Show("Instance $($inputobject.metadata.name) needs to be restarted for changes to take effect.`nWould you like to restart now?",'Virtual Machine Editor','YesNo','Warning'))
                             {
