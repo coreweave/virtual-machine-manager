@@ -321,7 +321,7 @@ function Invoke-k8ctl
         if($Action -eq 'VNC')
             {
                 #$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($global:Namespace) --proxy-only" -PassThru}
-                foreach ($Value in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value)
+                foreach ($Value in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique)
                     {
                         $PInfoVar =
                             @{
@@ -345,17 +345,17 @@ function Invoke-k8ctl
                     }
             }
 
-        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-noprofile -nologo -Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
+        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{Start-Process -FilePath powershell -ArgumentList "-noprofile -nologo -Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
 
         Elseif($Action -eq 'delete')
             {
-                switch([System.Windows.Forms.MessageBox]::Show("This action will delete:`n`n$($dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value.ForEach({$_+[System.Environment]::NewLine}))`nAre you sure you want to perform this action?",'CoreWeave Virtual Machine Manager','YesNo','Warning'))
+                switch([System.Windows.Forms.MessageBox]::Show("This action will delete:`n`n$($dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value.ForEach({$_+[System.Environment]::NewLine}) | select -Unique)`nAre you sure you want to perform this action?",'CoreWeave Virtual Machine Manager','YesNo','Warning'))
                     {
                         'Yes'
                             {
                                 $stdout = @()
                                 $Delete = @()
-                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace");($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace")}
+                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace");($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace")}
                                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                                 rv stdout,delete
@@ -367,7 +367,7 @@ function Invoke-k8ctl
             {
                 $stdout = @()
                 if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $global:Namespace")}
-                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}}
+                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout
