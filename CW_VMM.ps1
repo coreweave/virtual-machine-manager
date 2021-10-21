@@ -1,4 +1,13 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+﻿Add-Type -Name Window -Namespace Console -MemberDefinition '
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);'
+
+[Console.Window]::ShowWindow([Console.Window]::GetConsoleWindow(), 0)
+
+Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $Form                            = New-Object system.Windows.Forms.Form
@@ -150,7 +159,7 @@ $Button1.Add_Click(
                 $TextBox1.location               = New-Object System.Drawing.Point(0,10)
                 $TextBox1.Font                   = 'Microsoft Sans Serif,10'
                 $TextBox1.Autosize               = $false
-                $TextBox1.Text = $global:Namespace
+                $TextBox1.Text = $script:Namespace
                 $TextBox1.TextAlign = 'Center'
                 $TextBox1.Anchor = 'Top,Bottom,Left,Right'
 
@@ -163,7 +172,7 @@ $Button1.Add_Click(
                 $Button3.Font                    = 'Microsoft Sans Serif,10'
                 $Button3.Add_Click(
                     {
-                        $global:Namespace = $TextBox1.Text
+                        $script:Namespace = $TextBox1.Text
                         $Button2.PerformClick()
                         [void]$Form1.Close()
                     })
@@ -190,7 +199,7 @@ $Button1.Add_Click(
                 $SaveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
                 $SaveFileDialog.initialDirectory = $($env:USERPROFILE + '\Documents')
                 $SaveFileDialog.filter = "Comma Separated Value File (*.csv) | *.csv|All files (*.*)|*.*"
-                $SaveFileDialog.FileName = "$($global:Namespace+'_VDI_'+((get-date).tofiletime()))"
+                $SaveFileDialog.FileName = "$($script:Namespace+'_VDI_'+((get-date).tofiletime()))"
                 $SaveFileDialog.CheckPathExists = $true
                 [void]$SaveFileDialog.ShowDialog()
                 if($SaveFileDialog.FileName  -match [regex]::Escape('\'))
@@ -209,16 +218,16 @@ $Button1.Add_Click(
 
 $Button2.Add_Click(
     {
-        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $global:Namespace" -ErrorVariable LookupErr) | convertfrom-json
+        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $script:Namespace" -ErrorVariable LookupErr 2>&1) | convertfrom-json
         if(!($LookupErr))
             {
-                $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $global:Namespace" |convertfrom-json)
-                $global:Table = New-Object system.Data.DataTable "VirtualMachines"
+                $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $script:Namespace" |convertfrom-json)
+                $Table = New-Object system.Data.DataTable "VirtualMachines"
                 $Table.Columns.Add("Name","System.String") | out-null
                 $Table.Columns.Add("InternalIP","System.String") | out-null
                 $Table.Columns.Add("IP","System.String") | out-null
                 $Table.Columns.Add("Reigon","System.String") | out-null
-                $Table.Columns.Add("GPU","System.String") | out-null
+                $Table.Columns.Add("Type","System.String") | out-null
                 $Table.Columns.Add("Cores","System.Int32") | out-null
                 $Table.Columns.Add("RAM","System.String") | out-null
                 $Table.Columns.Add("Storage","System.String") | out-null
@@ -235,7 +244,8 @@ $Button2.Add_Click(
                         Else{$NewRow.InternalIP = $svc.status.loadbalancer.ingress.ip}
 		                $NewRow.IP = $svc.status.loadbalancer.ingress.ip
 		                $NewRow.Reigon = $Row.spec.template.spec.nodeselector.'topology.kubernetes.io/region'
-		                $NewRow.GPU = $Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'
+		                if($Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'){$NewRow.Type = $($Row.spec.template.spec.nodeselector.'gpu.nvidia.com/model'+" {$($Row.spec.template.spec.domain.devices.gpus.name.Count)}")}
+                        Else{$NewRow.Type = $Row.spec.template.spec.nodeSelector.'node.coreweave.cloud/cpu'}
 		                $NewRow.Cores = [int]$Row.spec.template.spec.domain.cpu.cores
 		                $NewRow.RAM = $Row.spec.template.spec.domain.resources.requests.memory
 		                $NewRow.Storage = $Row.spec.datavolumetemplates.spec.pvc.resources.requests.storage
@@ -267,7 +277,7 @@ $toolStripItem5.add_Click(
     {
         foreach($vm in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value)
             {
-                $vs = (iex "$env:ProgramData\k8s\kubectl.exe get vs $($vm) -n $global:Namespace -o json" -ErrorVariable stderr -ErrorAction SilentlyContinue) | ConvertFrom-Json -ErrorAction SilentlyContinue
+                $vs = (iex "$env:ProgramData\k8s\kubectl.exe get vs $($vm) -n $script:Namespace -o json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1) | ConvertFrom-Json -ErrorAction SilentlyContinue
                 if($stderr){[System.Windows.Forms.MessageBox]::Show("$($stderr)",'CoreWeave Virtual Machine Manager','OK','Error');rv stderr}
                 Else{Deploy-VS -Edit:$true -InputObject $vs}
             }
@@ -286,7 +296,7 @@ $toolStripItem6.add_Click(
 
         if($CheckBox1.CheckState -eq 'Checked'){$Index = 1}
         Else{$Index = 2}
-        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-noprofile -nologo -command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh -o StrictHostKeychecking=no `$user@$_""" -PassThru}
+        $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq $Index}.Value | %{Start-Process -FilePath "powershell.exe" -ArgumentList "-noprofile -nologo -command ""`$user = Read-Host -Prompt 'Enter your UserName';ssh -o StrictHostKeyChecking=no `$user@$_""" -PassThru}
     })
 
 $toolStripItem7.add_Click(
@@ -310,8 +320,8 @@ function Invoke-k8ctl
         
         if($Action -eq 'VNC')
             {
-                #$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($global:Namespace) --proxy-only" -PassThru}
-                foreach ($Value in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value)
+                #$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($script:Namespace) --proxy-only" -PassThru}
+                foreach ($Value in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique)
                     {
                         $PInfoVar =
                             @{
@@ -320,7 +330,7 @@ function Invoke-k8ctl
                                 'UseShellExecute' = $false
                                 'CreateNoWindow' = $true
                                 'WindowStyle' = 'Hidden'
-                                'Arguments' = "vnc $Value -n $($global:Namespace) --proxy-only"
+                                'Arguments' = "vnc $Value -n $($script:Namespace) --proxy-only"
                             }
 
                         $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
@@ -335,17 +345,17 @@ function Invoke-k8ctl
                     }
             }
 
-        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath powershell -ArgumentList "-noprofile -nologo -Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
+        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{Start-Process -FilePath powershell -ArgumentList "-noprofile -nologo -Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($script:Namespace)""" -PassThru}}
 
         Elseif($Action -eq 'delete')
             {
-                switch([System.Windows.Forms.MessageBox]::Show("This action will delete:`n`n$($dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value.ForEach({$_+[System.Environment]::NewLine}))`nAre you sure you want to perform this action?",'CoreWeave Virtual Machine Manager','YesNo','Warning'))
+                switch([System.Windows.Forms.MessageBox]::Show("This action will delete:`n`n$($dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value.ForEach({$_+[System.Environment]::NewLine}) | select -Unique)`nAre you sure you want to perform this action?",'CoreWeave Virtual Machine Manager','YesNo','Warning'))
                     {
                         'Yes'
                             {
                                 $stdout = @()
                                 $Delete = @()
-                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace");($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace")}
+                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $script:Namespace" 2>&1);($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $script:Namespace" 2>&1)}
                                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                                 rv stdout,delete
@@ -356,8 +366,8 @@ function Invoke-k8ctl
         Else
             {
                 $stdout = @()
-                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $global:Namespace")}
-                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}}
+                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $script:Namespace" 2>&1)}
+                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $script:Namespace" 2>&1)}}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout
@@ -381,7 +391,8 @@ function Load-KubeConfig
                             {
                                 'Yes'
                                     {
-                                        Rename-Item -Path "$env:userprofile\.kube\config" -NewName "config.$((get-date).ToFileTime())" -Force
+                                        $account = (gc $env:userprofile\.kube\config | select-string '- name').ToString().TrimStart('- name: ')
+                                        Rename-Item -Path "$env:userprofile\.kube\config" -NewName "$($account).config" -Force
                                         Copy-Item $OpenFileDialog.FileName -Destination $env:userprofile\.kube\config -Force
                                     }
                                 'No'{[System.Windows.Forms.MessageBox]::Show("Not using selected configuration file.",'Configuration File','OK','Warning')}
@@ -389,7 +400,7 @@ function Load-KubeConfig
                     }
                 Else{Move-Item $OpenFileDialog.FileName -Destination $env:userprofile\.kube\config -Force}
 
-                $global:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
+                $script:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
             }
     }
 
@@ -429,7 +440,7 @@ if(!(test-path $env:ProgramData\k8s\virtctl.exe -ErrorAction SilentlyContinue))
             }
     }
 
-$global:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
+$script:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
 
 [bool]$IsInternal = (gcim msft_Netipaddress -namespace root/StandardCimv2 -Property IPAddress -Filter "InterfaceAlias like 'Ethernet%' and AddressFamily = 2").IPAddress -match '^(10\.135\.(?:1(?:9[2-9])|2(?:0[0-7]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.135\.(?:2(?:0[8-9]|1[0-9]|2[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[4-9]|5[0-9]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$'
 if($IsInternal){$CheckBox1.CheckState = 'Checked'}
@@ -447,6 +458,8 @@ Param
 #Add-Type -AssemblyName System.Windows.Forms
 #[System.Windows.Forms.Application]::EnableVisualStyles()
 
+rv software,cloudinit -Scope Script -ErrorAction SilentlyContinue
+
 if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContinue))
     {
         switch([System.Windows.Forms.MessageBox]::Show("No cached data found for hardware types.`nWould you like to cache data now?",'Hardware Cache','YesNo','Warning'))
@@ -455,7 +468,7 @@ if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContin
                     {
                         if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
                         (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
-                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
                     }
 
                 'No'
@@ -473,18 +486,18 @@ Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).LastAccessTime -le (get-date)
                     {
                         if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
                         (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
-                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
                     }
 
-                'No'{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
+                'No'{$HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
             }
     }
 
-Else{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
+Else{$HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
 
 if(!($Edit)){$pvc = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -n vd-images -l images.coreweave.cloud/latest=true,images.coreweave.cloud/private=false --sort-by=.spec.storageClassName -o json") |convertfrom-json}
 
-$private = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -n $global:Namespace -o json") | convertfrom-json
+$private = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -n $script:Namespace -o json") | convertfrom-json
 
 $Form                            = New-Object system.Windows.Forms.Form
 $Form.ClientSize                 = New-Object System.Drawing.Point(515,850)
@@ -537,7 +550,7 @@ $ComboBox1.location              = New-Object System.Drawing.Point(5,0)
 $ComboBox1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $ComboBox1.Anchor = 'Left'
 $ComboBox1.AutoSize = $true
-$global:HW.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
+$HW.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
 $comboBox1.text                  = "Reigon"
 $combobox1.DropDownStyle         = 'DropDownList'
 
@@ -589,6 +602,7 @@ $Combobox2.Add_SelectedValueChanged(
                 $NumericUpDown2.Value = $Size
                 $Combobox4.Items.Clear()
                 (($pvc.items | where  {$_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem -Replace ' ','_')}).metadata.labels.'images.coreweave.cloud/features' | sort -Unique) | ForEach-Object {[void] $comboBox4.Items.Add($_)}
+                if($ComboBox2.SelectedItem -like 'Win*'){$Combobox4.Items.Add('Teradici')}
                 $combobox4.SelectedIndex = 0
                 
             }
@@ -698,7 +712,7 @@ $RadioButton1.Add_CheckedChanged(
         if($RadioButton1.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                ($global:HW | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                ($HW | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $false
                 $NumericUpDown1.Enabled = $false
                 $NumericUpDown1.Refresh()
@@ -724,7 +738,7 @@ $RadioButton2.Add_CheckedChanged(
         if($RadioButton2.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                $global:HW.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                $HW.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $true
                 $NumericUpDown1.Enabled = $true
                 $Combobox3.Refresh()
@@ -881,7 +895,7 @@ $Groupbox5.Controls.AddRange(@($CheckBox1,$ListBox1))
 
 $Groupbox6                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox6.height                = 160
-$Groupbox6.width                 = 480
+$Groupbox6.width                 = 235
 $Groupbox6.text                  = "VM State"
 $Groupbox6.location              = New-Object System.Drawing.Point(8,510)
 $Groupbox6.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
@@ -1009,6 +1023,34 @@ $CheckBox2.CheckState            = 'UnChecked'
 
 $Groupbox6.Controls.AddRange(@($Checkbox3,$CheckBox2,$Radiobutton3,$RadioButton4,$NumericUpDown5,$Label2))
 
+$Groupbox10                       = New-Object system.Windows.Forms.Groupbox
+$Groupbox10.height                = 160
+$Groupbox10.width                 = 235
+$Groupbox10.text                  = "Instance Metadata"
+$Groupbox10.location              = New-Object System.Drawing.Point(253,510)
+$Groupbox10.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$Groupbox10.Anchor = 'Top,Left'
+$Groupbox10.AutoSize = $false
+
+$Button3                         = New-Object system.Windows.Forms.Button
+$Button3.text                    = "Add Software"
+$Button3.width                   = 150
+$Button3.height                  = 40
+$Button3.location                = New-Object System.Drawing.Point(5,20)
+$Button3.Font                    = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+$Button3.Anchor = 'Top,Bottom,Left,Right'
+$Button3.AutoSize = $true
+$Button3.AutoSizeMode = 'GrowAndShrink'
+$Button3.Add_Click(
+    {
+        if($ComboBox2.Text -match '2019'){$script:Software = Invoke-SoftwareLoader -Choco -InputObject $script:Software}
+        Elseif($ComboBox2.Text -match 'Windows'){$script:Software = Invoke-SoftwareLoader -Choco -WinGet -InputObject $script:Software}
+        Elseif($ComboBox2.Text -match 'CentOS' -or $ComboBox2.Text -match 'Ubuntu'){$script:Software = Invoke-SoftwareLoader -Linux -InputObject $script:Software}
+        Else{$script:Software = Invoke-SoftwareLoader -InputObject $script:Software}
+    })
+
+$Groupbox10.Controls.AddRange(@($Button3))
+
 $Groupbox7                       = New-Object system.Windows.Forms.Groupbox
 $Groupbox7.height                = 75
 $Groupbox7.width                 = 480
@@ -1027,7 +1069,7 @@ $Button1.Font                    = New-Object System.Drawing.Font('Microsoft San
 $Button1.Anchor = 'Top,Bottom,Left,Right'
 $Button1.AutoSize = $true
 $Button1.AutoSizeMode = 'GrowAndShrink'
-$Button1.Add_Click({$global:cred = $Host.UI.PromptForCredential("VDI User Account Information","Enter your desired credentials:",$null,$null)})
+$Button1.Add_Click({$script:cred = $Host.UI.PromptForCredential("VDI User Account Information","Enter your desired credentials:",$null,$null)})
 
 $Groupbox7.Controls.AddRange(@($Button1))
 
@@ -1042,70 +1084,147 @@ $Button2.AutoSize = $true
 $Button2.AutoSizeMode = 'GrowAndShrink'
 $Button2.Add_Click(
     {
-@"
-apiVersion: virtualservers.coreweave.com/v1alpha1
-kind: VirtualServer
-metadata:
-  name: $($TextBox1.text)
-spec:
-  region: $($ComboBox1.Text)
-  os:
-    type: $(if($ComboBox2.text -like '*win*'){'windows'};if($combobox2.Text -notlike '*win*'){'linux'})
-  resources:
-$(if($RadioButton2.Checked -eq $true)
-{
-"    gpu:
-      type: $($combobox3.text)
-      count: $($numericupdown1.value)
-    cpu:
-      count: $($NumericUpDown3.value)"}
-if($RadioButton1.Checked -eq $true)
-{
-"    cpu:
-      type: $($combobox3.text)
-      count: $($NumericUpDown3.value)"})
-    memory: $($numericupdown4.value)Gi
-  storage:
-    root:
-      size: $($numericupdown2.value)Gi
-      storageClassName: block-nvme-$($ComboBox1.text.ToLower())
-      source:
-$(if($RadioButton5.Checked -eq $true -and $Edit -ne $true)
-{
-"        pvc:
-          namespace: vd-images
-          name: $(($pvc.items | where {($_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem  -Replace ' ','_')) -and ($($_.metadata.labels.'images.coreweave.cloud/features') -eq $($combobox4.selecteditem))}).metadata.name | where{$_ -like "*$($ComboBox1.Text)"})"}
-if($RadioButton5.Checked -eq $true -and $Edit -eq $true)
-{
-"        pvc:
-          namespace: vd-images
-          name: $($inputobject.spec.storage.root.source.pvc.name)"}
-if($radiobutton6.Checked -eq $true -and $Edit -ne $true)
-{
-"        pvc:
-          namespace: $($global:namespace)
-          name: $($combobox2.text)"}
-if($radiobutton6.Checked -eq $true -and $Edit -eq $true)
-{
-"        pvc:
-          namespace: $($global:namespace)
-          name: $($inputobject.spec.storage.root.source.pvc.name)"})
-$(if($CheckBox1.Checked -eq $true)
-{"    filesystems:$($ListBox1.SelectedItems | %{
-"
-      - name: $($_)
-        spec:
-          persistentVolumeClaim:
-            claimName: $($_)"})"})
-  users:
-    - username: $($cred.UserName)
-      password: $($cred.GetNetworkCredential().Password)
-  network:
-    public: $(if($RadioButton7.Checked -eq $true){'true'};if($RadioButton8.Checked -eq $true){'false'})
-    directAttachLoadBalancerIP: true
-  initializeRunning: $(if($RadioButton3.Checked -eq $true){'true'};if($RadioButton4.Checked -eq $true){'false'})
-"@ -replace '\n\r','' | out-file $env:temp\deploy.yaml
-        $Stdout = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.yaml -n $global:Namespace" -ErrorVariable stderr -ErrorAction SilentlyContinue
+        if(!($Edit))
+            {
+                $json = @{}
+                $json.apiVersion = 'virtualservers.coreweave.com/v1alpha1'
+                $json.kind = 'VirtualServer'
+                $json.metadata = @{}
+                $json.metadata.name = $($TextBox1.text)
+                $json.metadata.namespace = $script:Namespace
+                $json.metadata.annotations = @{}
+                $json.metadata.annotations.'external-dns.alpha.kubernetes.io/hostname' = "$($TextBox1.text).$($script:Namespace).coreweave.cloud"
+                $json.spec = @{}
+                $json.spec.region = $($ComboBox1.Text)
+                $json.spec.os = @{}
+                if($ComboBox2.text -like '*win*'){$json.spec.os.type = 'windows'}
+                if($ComboBox2.text -notlike '*win*'){$json.spec.os.type = 'linux'}
+                $json.spec.resources = @{}
+                if($RadioButton2.Checked -eq $true)
+                    {
+                        $json.spec.resources.gpu = @{}
+                        $json.spec.resources.gpu.type = $($combobox3.text)
+                        $json.spec.resources.gpu.count = [int]$($numericupdown1.value)
+                    }
+                $json.spec.resources.cpu = @{}
+                $json.spec.resources.cpu.count = [int]$($NumericUpDown3.value)
+                if($RadioButton1.Checked -eq $true){$json.spec.resources.cpu.type = $($combobox3.text)}
+                $json.spec.resources.memory = "$($numericupdown4.value)Gi"
+                $json.spec.storage = @{}
+                $json.spec.storage.root = @{}
+                $json.spec.storage.root.size = "$($numericupdown2.value)Gi"
+                $json.spec.storage.root.storageClassName = "block-nvme-$($ComboBox1.text.ToLower())"
+                $json.spec.storage.root.source = @{}
+                $json.spec.storage.root.source.pvc = @{}
+                if($RadioButton5.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $(($pvc.items | where {($_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem  -Replace ' ','_')) -and ($($_.metadata.labels.'images.coreweave.cloud/features') -eq $($combobox4.selecteditem.replace('Teradici','')))}).metadata.name | where{$_ -like "*$($ComboBox1.Text)"})}
+                if($RadioButton5.Checked -eq $true -and $Edit -eq $true){$json.spec.storage.root.source.pvc.name = $($InputObject.spec.storage.root.source.pvc.name)}
+                if($RadioButton5.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = 'vd-images'}
+                if($radiobutton6.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $($combobox2.text)}
+                if($radiobutton6.Checked -eq $true -and $Edit -eq $true){$json.spec.storage.root.source.pvc.name = $($InputObject.spec.storage.root.source.pvc.name)}
+                if($RadioButton6.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = $script:Namespace}
+                if($CheckBox1.Checked -eq $true)
+                    {
+                        $filesystems = @()
+                        $($ListBox1.SelectedItems).ForEach(
+                            {   
+                                $Hash = @{}                     
+                                $Hash.name = $_
+                                $Hash.spec = @{}
+                                $Hash.spec.persistentVolumeClaim = @{}
+                                $Hash.spec.persistentVolumeClaim.claimName = $_
+                                $filesystems += $hash
+                            })
+                        $json.spec.storage.filesystems = $filesystems
+                    }
+                $users = @{}
+                $users.username = $($cred.UserName)
+                $users.password = $($cred.GetNetworkCredential().Password)
+                $json.spec.users = @($users)
+                $json.spec.network = @{}
+                $json.spec.network.directAttachLoadBalancerIP = $true
+                if($RadioButton7.Checked -eq $true){$json.spec.network.public = $true}
+                if($RadioButton8.Checked -eq $true){$json.spec.network.public = $false}
+                if($RadioButton3.Checked -eq $true){$json.spec.initializeRunning = $true}
+                if($RadioButton4.Checked -eq $true){$json.spec.initializeRunning = $false}
+                if(!([string]::IsNullOrWhiteSpace($script:Software.chocolatey))){$cloudinit += 'choco_install: ['+($script:Software.chocolatey -join ',')+']'+[System.Environment]::NewLine}
+                if(!([string]::IsNullOrWhiteSpace($script:Software.WinGet))){$cloudinit += 'winget_install: ['+($script:Software.WinGet -join ',')+']'+[System.Environment]::NewLine}
+                if(!([string]::IsNullOrWhiteSpace($script:Software.'Apt/Yum Package')))
+                    {
+                        $string = 'packages:'
+                        $string += [System.Environment]::NewLine
+                        $script:Software.'Apt/Yum Package'.ForEach({$string += ("  - $_"+[System.Environment]::NewLine)})
+                        $cloudinit += $string
+                    }
+                if($combobox4.selecteditem -eq 'Teradici'){$cloudinit += ("Teradici: $($true)"+[System.Environment]::NewLine)}
+                if($cloudinit)
+                    {
+                        $json.spec.cloudInit = @{}
+                        $json.spec.cloudInit = $cloudinit
+                    }
+            }
+        if(($Edit))
+            {
+                $json = $InputObject
+                $json.spec.region = $($ComboBox1.Text)
+                if($RadioButton2.Checked -eq $true)
+                    {
+                        if($json.spec.resources.cpu.type)
+                            {
+                                $json.spec.resources.cpu.psobject.Properties.Remove('type')
+                                $hash = @{}
+                                $hash.gpu = @{}
+                                $hash.gpu.type = $($combobox3.text)
+                                $hash.gpu.count = [int]$($numericupdown1.value)
+                                $json.spec.resources | add-member $hash
+                            }
+                        Else
+                            {
+                                $json.spec.resources.gpu.type = $($combobox3.text)
+                                $json.spec.resources.gpu.count = [int]$($numericupdown1.value)
+                            }
+                    }
+                $json.spec.resources.cpu.count = [int]$($NumericUpDown3.value)
+                if($RadioButton1.Checked -eq $true)
+                    {
+                        if(!($json.spec.resources.cpu.type))
+                            {
+                                $json.spec.resources.psobject.Properties.Remove('gpu')
+                                $hash = @{}
+                                $hash.type = $($combobox3.text)
+                                $json.spec.resources.cpu | Add-Member $hash
+                            }
+                        Else{$json.spec.resources.cpu.type = $($combobox3.text)}
+                    }
+                $json.spec.resources.memory = "$($numericupdown4.value)Gi"
+                $json.spec.storage.root.size = "$($numericupdown2.value)Gi"
+                $json.spec.storage.root.storageClassName = "block-nvme-$($ComboBox1.text.ToLower())"
+                if($CheckBox1.Checked -eq $true)
+                    {
+                        $filesystems = @()
+                        $($ListBox1.SelectedItems).ForEach(
+                            {   
+                                $Hash = @{}                     
+                                $Hash.name = $_
+                                $Hash.spec = @{}
+                                $Hash.spec.persistentVolumeClaim = @{}
+                                $Hash.spec.persistentVolumeClaim.claimName = $_
+                                $filesystems += $hash
+                            })
+                        if(!($json.spec.storage.filesystems))
+                            {
+                                $hash = @{}
+                                $hash.filesystems = $filesystems
+                                $json.spec.storage | Add-Member $hash
+                            }
+                        Else{$json.spec.storage.filesystems = $filesystems}
+                    }
+                if($RadioButton7.Checked -eq $true){$json.spec.network.public = $true}
+                if($RadioButton8.Checked -eq $true){$json.spec.network.public = $false}
+                $json = $json | select * -ExcludeProperty status
+
+            }
+        $($json | convertto-json -Depth 20) | out-file $env:temp\deployvs.json
+        $stdout = iex "$env:ProgramData\k8s\kubectl.exe apply -n $script:Namespace -f $env:temp\deployvs.json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1
         $stdout += $stderr
         if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Error')}
         Else
@@ -1117,7 +1236,7 @@ $(if($CheckBox1.Checked -eq $true)
                                 $VSPVC = ($private.items | where {$_.metadata.name -eq $vs.metadata.name})
                                 $VSPVC.spec.resources.requests.storage = $($numericupdown2.value.tostring()+'Gi')
                                 $VSPVC | ConvertTo-Json -Depth 10 | out-file $env:temp\deploy.json
-                                $out = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.json -n $global:Namespace" -ErrorVariable err -ErrorAction SilentlyContinue
+                                $out = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.json -n $script:Namespace" -ErrorVariable err -ErrorAction SilentlyContinue 2>&1
                                 $out += $err
                                 if($out | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Information')}
@@ -1126,7 +1245,7 @@ $(if($CheckBox1.Checked -eq $true)
                             }
                     }
                 [System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Information')
-                if($Edit -and (($inputobject.status.conditions | sort lastTransitionTime  -Descending | select -First 1).Status))
+                if($Edit -and (($inputobject.status.conditions.message.Contains('VirtualServerStarted'))))
                     {
                         switch([System.Windows.Forms.MessageBox]::Show("Instance $($inputobject.metadata.name) needs to be restarted for changes to take effect.`nWould you like to restart now?",'Virtual Machine Editor','YesNo','Warning'))
                             {
@@ -1136,10 +1255,10 @@ $(if($CheckBox1.Checked -eq $true)
                     }
             }
         [GC]::Collect()
-        Remove-Item "$($env:temp)\deploy.yaml" -Force
+        Remove-Item "$($env:temp)\deployvs.json" -Force
     })
 
-$Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Groupbox8,$Groupbox9,$Button2))
+$Form.controls.AddRange(@($Groupbox3,$Groupbox2,$Groupbox1,$Groupbox4,$Groupbox5,$Groupbox6,$GroupBox7,$Groupbox8,$Groupbox9,$Groupbox10,$Button2))
 
 if($Edit)
     {
@@ -1147,6 +1266,7 @@ if($Edit)
         $Groupbox2.Enabled = $false
         $Groupbox7.Enabled = $false
         $Groupbox6.Enabled = $false
+        $Groupbox10.Enabled = $false
         $TextBox1.text = $InputObject.metadata.name
         $Combobox1.SelectedItem = $InputObject.spec.region
         if($InputObject.spec.resources.cpu)
@@ -1176,7 +1296,7 @@ if($Edit)
 
         $numericupdown2.value = $InputObject.spec.storage.root.size.trimend('Gi')
         if($InputObject.spec.storage.root.source.pvc.namespace -eq 'vd-images'){$RadioButton5.Checked = $true}
-        Elseif($InputObject.spec.storage.root.source.pvc.namespace -eq $global:Namespace){$RadioButton6.Checked = $true}
+        Elseif($InputObject.spec.storage.root.source.pvc.namespace -eq $script:Namespace){$RadioButton6.Checked = $true}
 
         $username = $InputObject.spec.users.username
         $password = $InputObject.spec.users.password
@@ -1190,5 +1310,80 @@ if($Edit)
 [void]$Form.ShowDialog()
 }
 
+function Invoke-SoftwareLoader
+    {
+
+        Param
+            (
+                [switch]$WinGet,
+                [switch]$Choco,
+                [switch]$Linux,
+                $InputObject
+            )
+        
+        $Form6    = New-Object system.Windows.Forms.Form
+        $Form6.ClientSize                 = '400,400'
+        $Form6.text                       = "Additional Software"
+        $Form6.TopMost                    = $false
+        $Form6.Anchor = 'Top,Bottom,Left,Right'
+        $Form6.StartPosition = 'CenterScreen'
+        $stream  = New-Object IO.MemoryStream($iconBytes, 0, $iconBytes.Length)
+        $stream.Write($iconBytes, 0, $iconBytes.Length);
+        $iconImage       = [System.Drawing.Image]::FromStream($stream, $true)
+        $Form6.Icon       = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $stream).GetHIcon())
+
+        $DataGridView3                   = New-Object system.Windows.Forms.DataGridView
+        $DataGridView3.width             = 400
+        $DataGridView3.height            = 345
+        $DataGridView3.location          = New-Object System.Drawing.Point(0,0)
+        $DataGridView3.AutoSizeColumnsMode    = 'Fill'
+        $DataGridView3.Anchor                 = 'Top,Left,Right,Bottom'
+        $dataGridView3.Add_RowsAdded({ $dataGridView3.Rows | %{ $_.HeaderCell.Value = ($_.Index +1).ToString();$datagridview3.AutoResizeRowHeadersWidth(($_.Index),'AutoSizeToDisplayedHeaders') } })
+
+        $Button10 = New-Object system.Windows.Forms.Button
+        $Button10.text                    = "Save"
+        $Button10.width                   = 60
+        $Button10.height                  = 30
+        $Button10.Anchor                  = 'left,bottom'
+        $Button10.location                = New-Object System.Drawing.Point(10,360)
+        $Button10.Font                    = 'Microsoft Sans Serif,10'
+
+        $Button11 = New-Object system.Windows.Forms.Button
+        $Button11.text                    = "Clear"
+        $Button11.width                   = 60
+        $Button11.height                  = 30
+        $Button11.Anchor                  = 'right,bottom'
+        $Button11.location                = New-Object System.Drawing.Point(330,360)
+        $Button11.Font                    = 'Microsoft Sans Serif,10'
+
+        $DataTable = New-Object system.Data.DataTable "ArrayData"
+        $DataTable.Columns.Add("Chocolatey","System.String") | Out-Null
+        $DataTable.Columns.Add("WinGet","System.String") | Out-Null
+        $DataTable.Columns.Add("Apt/Yum Package","System.String") | Out-Null
+        
+        if($InputObject.GetType().Name -eq 'DataRow'){$DataTable.ImportRow($InputObject)}
+        Elseif($InputObject.GetType().Name -eq 'Object[]'){$InputObject.GetEnumerator().ForEach({$DataTable.ImportRow($_)})}
+
+        $DataGridView3.DataSource = $DataTable
+
+        $Form6.controls.AddRange(@($DataGridView3,$Button10,$Button11))
+
+        $DataGridView3 | out-host
+
+        if(!($Choco)){$DataGridView3.Columns[0].ReadOnly = $true}
+        if(!($WinGet)){$DataGridView3.Columns[1].ReadOnly = $true}
+        if(!($Linux)){$DataGridView3.Columns[2].ReadOnly = $true}
+
+        $Button10.Add_Click(
+            {           
+                [void]$Form6.Close()              
+            })
+
+        $Button11.Add_Click({$DataTable.Clear()})
+
+        [void]$Form6.ShowDialog() 
+
+        Return $DataTable
+    }
 
 [void]$Form.ShowDialog()

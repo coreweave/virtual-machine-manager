@@ -2,6 +2,17 @@
 
 This repository contains the CoreWeave Virtual Machine Manager, a PowerShell based tool leveraging `Kubectl` and `Virtctl` to manage instances on CoreWeave Cloud.
 
+## Launching
+
+Grab the latest executable from the [releases section](https://github.com/coreweave/virtual-machine-manager/releases).
+
+Or you're feeling brave, paste this into a PowerShell console window to launch directly:
+
+`````
+& $([scriptblock]::Create((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/coreweave/virtual-machine-manager/main/CW_VMM.ps1')))
+`````
+## Features
+
 ### Start/Stop/Restart your instances
 
 
