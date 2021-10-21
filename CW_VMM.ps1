@@ -458,6 +458,8 @@ Param
 #Add-Type -AssemblyName System.Windows.Forms
 #[System.Windows.Forms.Application]::EnableVisualStyles()
 
+rv software,cloudinit -Scope Script -ErrorAction SilentlyContinue
+
 if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContinue))
     {
         switch([System.Windows.Forms.MessageBox]::Show("No cached data found for hardware types.`nWould you like to cache data now?",'Hardware Cache','YesNo','Warning'))
@@ -1041,10 +1043,10 @@ $Button3.AutoSize = $true
 $Button3.AutoSizeMode = 'GrowAndShrink'
 $Button3.Add_Click(
     {
-        if($ComboBox2.Text -match '2019'){Invoke-SoftwareLoader -Choco}
-        Elseif($ComboBox2.Text -match 'Windows'){Invoke-SoftwareLoader -Choco -WinGet}
-        Elseif($ComboBox2.Text -match 'CentOS' -or $ComboBox2.Text -match 'Ubuntu'){Invoke-SoftwareLoader -Linux}
-        Else{Invoke-SoftwareLoader}
+        if($ComboBox2.Text -match '2019'){$script:Software = Invoke-SoftwareLoader -Choco -InputObject $script:Software}
+        Elseif($ComboBox2.Text -match 'Windows'){$script:Software = Invoke-SoftwareLoader -Choco -WinGet -InputObject $script:Software}
+        Elseif($ComboBox2.Text -match 'CentOS' -or $ComboBox2.Text -match 'Ubuntu'){$script:Software = Invoke-SoftwareLoader -Linux -InputObject $script:Software}
+        Else{$script:Software = Invoke-SoftwareLoader -InputObject $script:Software}
     })
 
 $Groupbox10.Controls.AddRange(@($Button3))
@@ -1114,7 +1116,7 @@ $Button2.Add_Click(
                 $json.spec.storage.root.storageClassName = "block-nvme-$($ComboBox1.text.ToLower())"
                 $json.spec.storage.root.source = @{}
                 $json.spec.storage.root.source.pvc = @{}
-                if($RadioButton5.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $(($pvc.items | where {($_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem  -Replace ' ','_')) -and ($($_.metadata.labels.'images.coreweave.cloud/features') -eq $($combobox4.selecteditem))}).metadata.name | where{$_ -like "*$($ComboBox1.Text)"})}
+                if($RadioButton5.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $(($pvc.items | where {($_.metadata.labels.'images.coreweave.cloud/name' -eq $($ComboBox2.SelectedItem  -Replace ' ','_')) -and ($($_.metadata.labels.'images.coreweave.cloud/features') -eq $($combobox4.selecteditem.replace('Teradici','')))}).metadata.name | where{$_ -like "*$($ComboBox1.Text)"})}
                 if($RadioButton5.Checked -eq $true -and $Edit -eq $true){$json.spec.storage.root.source.pvc.name = $($InputObject.spec.storage.root.source.pvc.name)}
                 if($RadioButton5.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = 'vd-images'}
                 if($radiobutton6.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $($combobox2.text)}
@@ -1144,7 +1146,21 @@ $Button2.Add_Click(
                 if($RadioButton8.Checked -eq $true){$json.spec.network.public = $false}
                 if($RadioButton3.Checked -eq $true){$json.spec.initializeRunning = $true}
                 if($RadioButton4.Checked -eq $true){$json.spec.initializeRunning = $false}
-                #$json.spec.cloudInit = ''
+                if(!([string]::IsNullOrWhiteSpace($script:Software.chocolatey))){$cloudinit += 'choco_install: ['+($script:Software.chocolatey -join ',')+']'+[System.Environment]::NewLine}
+                if(!([string]::IsNullOrWhiteSpace($script:Software.WinGet))){$cloudinit += 'winget_install: ['+($script:Software.WinGet -join ',')+']'+[System.Environment]::NewLine}
+                if(!([string]::IsNullOrWhiteSpace($script:Software.'Apt/Yum Package')))
+                    {
+                        $string = 'packages:'
+                        $string += [System.Environment]::NewLine
+                        $script:Software.'Apt/Yum Package'.ForEach({$string += ("  - $_"+[System.Environment]::NewLine)})
+                        $cloudinit += $string
+                    }
+                if($combobox4.selecteditem -eq 'Teradici'){$cloudinit += ("Teradici: $($true)"+[System.Environment]::NewLine)}
+                if($cloudinit)
+                    {
+                        $json.spec.cloudInit = @{}
+                        $json.spec.cloudInit = $cloudinit
+                    }
             }
         if(($Edit))
             {
@@ -1302,7 +1318,7 @@ function Invoke-SoftwareLoader
                 [switch]$WinGet,
                 [switch]$Choco,
                 [switch]$Linux,
-                [System.Data.DataTable]$InputObject
+                $InputObject
             )
         
         $Form6    = New-Object system.Windows.Forms.Form
@@ -1344,8 +1360,10 @@ function Invoke-SoftwareLoader
         $DataTable.Columns.Add("Chocolatey","System.String") | Out-Null
         $DataTable.Columns.Add("WinGet","System.String") | Out-Null
         $DataTable.Columns.Add("Apt/Yum Package","System.String") | Out-Null
-        if($InputObject){$DataTable += $InputObject}
         
+        if($InputObject.GetType().Name -eq 'DataRow'){$DataTable.ImportRow($InputObject)}
+        Elseif($InputObject.GetType().Name -eq 'Object[]'){$InputObject.GetEnumerator().ForEach({$DataTable.ImportRow($_)})}
+
         $DataGridView3.DataSource = $DataTable
 
         $Form6.controls.AddRange(@($DataGridView3,$Button10,$Button11))
@@ -1358,15 +1376,14 @@ function Invoke-SoftwareLoader
 
         $Button10.Add_Click(
             {           
-                [void]$Form6.Close()
-                
+                [void]$Form6.Close()              
             })
 
         $Button11.Add_Click({$DataTable.Clear()})
 
-        [void]$Form6.ShowDialog()
+        [void]$Form6.ShowDialog() 
 
-        Return $DataTable 
+        Return $DataTable
     }
 
 [void]$Form.ShowDialog()
