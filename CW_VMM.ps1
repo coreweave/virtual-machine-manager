@@ -159,7 +159,7 @@ $Button1.Add_Click(
                 $TextBox1.location               = New-Object System.Drawing.Point(0,10)
                 $TextBox1.Font                   = 'Microsoft Sans Serif,10'
                 $TextBox1.Autosize               = $false
-                $TextBox1.Text = $global:Namespace
+                $TextBox1.Text = $script:Namespace
                 $TextBox1.TextAlign = 'Center'
                 $TextBox1.Anchor = 'Top,Bottom,Left,Right'
 
@@ -172,7 +172,7 @@ $Button1.Add_Click(
                 $Button3.Font                    = 'Microsoft Sans Serif,10'
                 $Button3.Add_Click(
                     {
-                        $global:Namespace = $TextBox1.Text
+                        $script:Namespace = $TextBox1.Text
                         $Button2.PerformClick()
                         [void]$Form1.Close()
                     })
@@ -199,7 +199,7 @@ $Button1.Add_Click(
                 $SaveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
                 $SaveFileDialog.initialDirectory = $($env:USERPROFILE + '\Documents')
                 $SaveFileDialog.filter = "Comma Separated Value File (*.csv) | *.csv|All files (*.*)|*.*"
-                $SaveFileDialog.FileName = "$($global:Namespace+'_VDI_'+((get-date).tofiletime()))"
+                $SaveFileDialog.FileName = "$($script:Namespace+'_VDI_'+((get-date).tofiletime()))"
                 $SaveFileDialog.CheckPathExists = $true
                 [void]$SaveFileDialog.ShowDialog()
                 if($SaveFileDialog.FileName  -match [regex]::Escape('\'))
@@ -218,11 +218,11 @@ $Button1.Add_Click(
 
 $Button2.Add_Click(
     {
-        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $global:Namespace" -ErrorVariable LookupErr 2>&1) | convertfrom-json
+        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $script:Namespace" -ErrorVariable LookupErr 2>&1) | convertfrom-json
         if(!($LookupErr))
             {
-                $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $global:Namespace" |convertfrom-json)
-                $global:Table = New-Object system.Data.DataTable "VirtualMachines"
+                $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $script:Namespace" |convertfrom-json)
+                $Table = New-Object system.Data.DataTable "VirtualMachines"
                 $Table.Columns.Add("Name","System.String") | out-null
                 $Table.Columns.Add("InternalIP","System.String") | out-null
                 $Table.Columns.Add("IP","System.String") | out-null
@@ -277,7 +277,7 @@ $toolStripItem5.add_Click(
     {
         foreach($vm in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value)
             {
-                $vs = (iex "$env:ProgramData\k8s\kubectl.exe get vs $($vm) -n $global:Namespace -o json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1) | ConvertFrom-Json -ErrorAction SilentlyContinue
+                $vs = (iex "$env:ProgramData\k8s\kubectl.exe get vs $($vm) -n $script:Namespace -o json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1) | ConvertFrom-Json -ErrorAction SilentlyContinue
                 if($stderr){[System.Windows.Forms.MessageBox]::Show("$($stderr)",'CoreWeave Virtual Machine Manager','OK','Error');rv stderr}
                 Else{Deploy-VS -Edit:$true -InputObject $vs}
             }
@@ -320,7 +320,7 @@ function Invoke-k8ctl
         
         if($Action -eq 'VNC')
             {
-                #$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($global:Namespace) --proxy-only" -PassThru}
+                #$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | %{Start-Process -FilePath $env:ProgramData\k8s\virtctl.exe -ArgumentList "vnc $_ -n $($script:Namespace) --proxy-only" -PassThru}
                 foreach ($Value in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique)
                     {
                         $PInfoVar =
@@ -330,7 +330,7 @@ function Invoke-k8ctl
                                 'UseShellExecute' = $false
                                 'CreateNoWindow' = $true
                                 'WindowStyle' = 'Hidden'
-                                'Arguments' = "vnc $Value -n $($global:Namespace) --proxy-only"
+                                'Arguments' = "vnc $Value -n $($script:Namespace) --proxy-only"
                             }
 
                         $PInfo = New-Object System.Diagnostics.ProcessStartInfo -Property $PInfoVar
@@ -345,7 +345,7 @@ function Invoke-k8ctl
                     }
             }
 
-        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{Start-Process -FilePath powershell -ArgumentList "-noprofile -nologo -Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($global:Namespace)""" -PassThru}}
+        Elseif($Action -eq 'console'){$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{Start-Process -FilePath powershell -ArgumentList "-noprofile -nologo -Command ""& $env:ProgramData\k8s\virtctl.exe $Action $_ -n $($script:Namespace)""" -PassThru}}
 
         Elseif($Action -eq 'delete')
             {
@@ -355,7 +355,7 @@ function Invoke-k8ctl
                             {
                                 $stdout = @()
                                 $Delete = @()
-                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace" 2>&1);($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace" 2>&1)}
+                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $script:Namespace" 2>&1);($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $script:Namespace" 2>&1)}
                                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                                 rv stdout,delete
@@ -366,8 +366,8 @@ function Invoke-k8ctl
         Else
             {
                 $stdout = @()
-                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $global:Namespace" 2>&1)}
-                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace" 2>&1)}}
+                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $script:Namespace" 2>&1)}
+                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $script:Namespace" 2>&1)}}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout
@@ -400,7 +400,7 @@ function Load-KubeConfig
                     }
                 Else{Move-Item $OpenFileDialog.FileName -Destination $env:userprofile\.kube\config -Force}
 
-                $global:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
+                $script:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
             }
     }
 
@@ -440,7 +440,7 @@ if(!(test-path $env:ProgramData\k8s\virtctl.exe -ErrorAction SilentlyContinue))
             }
     }
 
-$global:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
+$script:Namespace = (gc $env:userprofile\.kube\config | select-string Namespace).ToString().Substring(15)
 
 [bool]$IsInternal = (gcim msft_Netipaddress -namespace root/StandardCimv2 -Property IPAddress -Filter "InterfaceAlias like 'Ethernet%' and AddressFamily = 2").IPAddress -match '^(10\.135\.(?:1(?:9[2-9])|2(?:0[0-7]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.135\.(?:2(?:0[8-9]|1[0-9]|2[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[0-3]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$|^(10\.(?:1(?:4[4-9]|5[0-9]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5]))\.(?:[0-9]|[1-9][0-9]|1(?:[0-9][0-9])|2(?:[0-4][0-9]|5[0-5])))$'
 if($IsInternal){$CheckBox1.CheckState = 'Checked'}
@@ -466,7 +466,7 @@ if(!(test-path $env:APPDATA\CoreWeave\VMM\Labels.dat -ErrorAction SilentlyContin
                     {
                         if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
                         (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
-                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
                     }
 
                 'No'
@@ -484,18 +484,18 @@ Elseif((gci $env:APPDATA\CoreWeave\VMM\Labels.dat).LastAccessTime -le (get-date)
                     {
                         if(!(test-path $env:APPDATA\CoreWeave\VMM -ErrorAction SilentlyContinue)){New-Item -ItemType Directory -Path $env:APPDATA\CoreWeave\VMM -Force | out-null}
                         (iex "$env:ProgramData\k8s\kubectl.exe get nodes -o=custom-columns=GPU:.metadata.labels.gpu\.nvidia\.com/model,Hypervisor:.metadata.labels.node\.coreweave\.cloud/hypervisor,Class:.metadata.labels.node\.coreweave\.cloud/class,CPU:.metadata.labels.node\.coreweave\.cloud/cpu,REIGON:metadata.labels.topology\.kubernetes\.io\/region --server-print=false") -replace '\s{2,}',',' |convertfrom-csv | where {$_.Hypervisor -eq 'true' -and $_.GPU -notlike 'Geforce*'} | sort * -Unique | Export-Clixml -Path $env:APPDATA\CoreWeave\VMM\Labels.dat
-                        $global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
+                        $HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat
                     }
 
-                'No'{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
+                'No'{$HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
             }
     }
 
-Else{$global:HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
+Else{$HW = Import-Clixml $env:APPDATA\CoreWeave\VMM\Labels.dat}
 
 if(!($Edit)){$pvc = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -n vd-images -l images.coreweave.cloud/latest=true,images.coreweave.cloud/private=false --sort-by=.spec.storageClassName -o json") |convertfrom-json}
 
-$private = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -n $global:Namespace -o json") | convertfrom-json
+$private = (iex "$env:ProgramData\k8s\kubectl.exe get pvc -n $script:Namespace -o json") | convertfrom-json
 
 $Form                            = New-Object system.Windows.Forms.Form
 $Form.ClientSize                 = New-Object System.Drawing.Point(515,850)
@@ -548,7 +548,7 @@ $ComboBox1.location              = New-Object System.Drawing.Point(5,0)
 $ComboBox1.Font                  = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
 $ComboBox1.Anchor = 'Left'
 $ComboBox1.AutoSize = $true
-$global:HW.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
+$HW.reigon | sort -Unique | ForEach-Object {[void] $comboBox1.Items.Add($_)}
 $comboBox1.text                  = "Reigon"
 $combobox1.DropDownStyle         = 'DropDownList'
 
@@ -710,7 +710,7 @@ $RadioButton1.Add_CheckedChanged(
         if($RadioButton1.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                ($global:HW | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                ($HW | where {$_.Class -eq 'CPU' -and $_.CPU -ne ''}).CPU | sort -Unique | ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $false
                 $NumericUpDown1.Enabled = $false
                 $NumericUpDown1.Refresh()
@@ -736,7 +736,7 @@ $RadioButton2.Add_CheckedChanged(
         if($RadioButton2.Checked -eq $true)
             {
                 $Combobox3.Items.Clear()
-                $global:HW.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
+                $HW.GPU | sort -Unique | where {$_ -ne ''}| ForEach-Object {[void] $comboBox3.Items.Add($_)}
                 #$Label1.Enabled = $true
                 $NumericUpDown1.Enabled = $true
                 $Combobox3.Refresh()
@@ -1067,7 +1067,7 @@ $Button1.Font                    = New-Object System.Drawing.Font('Microsoft San
 $Button1.Anchor = 'Top,Bottom,Left,Right'
 $Button1.AutoSize = $true
 $Button1.AutoSizeMode = 'GrowAndShrink'
-$Button1.Add_Click({$global:cred = $Host.UI.PromptForCredential("VDI User Account Information","Enter your desired credentials:",$null,$null)})
+$Button1.Add_Click({$script:cred = $Host.UI.PromptForCredential("VDI User Account Information","Enter your desired credentials:",$null,$null)})
 
 $Groupbox7.Controls.AddRange(@($Button1))
 
@@ -1089,9 +1089,9 @@ $Button2.Add_Click(
                 $json.kind = 'VirtualServer'
                 $json.metadata = @{}
                 $json.metadata.name = $($TextBox1.text)
-                $json.metadata.namespace = $global:namespace
+                $json.metadata.namespace = $script:Namespace
                 $json.metadata.annotations = @{}
-                $json.metadata.annotations.'external-dns.alpha.kubernetes.io/hostname' = "$($TextBox1.text).$($global:namespace).coreweave.cloud"
+                $json.metadata.annotations.'external-dns.alpha.kubernetes.io/hostname' = "$($TextBox1.text).$($script:Namespace).coreweave.cloud"
                 $json.spec = @{}
                 $json.spec.region = $($ComboBox1.Text)
                 $json.spec.os = @{}
@@ -1119,8 +1119,7 @@ $Button2.Add_Click(
                 if($RadioButton5.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = 'vd-images'}
                 if($radiobutton6.Checked -eq $true -and $Edit -ne $true){$json.spec.storage.root.source.pvc.name = $($combobox2.text)}
                 if($radiobutton6.Checked -eq $true -and $Edit -eq $true){$json.spec.storage.root.source.pvc.name = $($InputObject.spec.storage.root.source.pvc.name)}
-                if($RadioButton6.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = $global:namespace}
-                #add filesystems
+                if($RadioButton6.Checked -eq $true){$json.spec.storage.root.source.pvc.namespace = $script:Namespace}
                 if($CheckBox1.Checked -eq $true)
                     {
                         $filesystems = @()
@@ -1209,7 +1208,7 @@ $Button2.Add_Click(
 
             }
         $($json | convertto-json -Depth 20) | out-file $env:temp\deployvs.json
-        $stdout = iex "$env:ProgramData\k8s\kubectl.exe apply -n $global:Namespace -f $env:temp\deployvs.json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1
+        $stdout = iex "$env:ProgramData\k8s\kubectl.exe apply -n $script:Namespace -f $env:temp\deployvs.json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1
         $stdout += $stderr
         if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Error')}
         Else
@@ -1221,7 +1220,7 @@ $Button2.Add_Click(
                                 $VSPVC = ($private.items | where {$_.metadata.name -eq $vs.metadata.name})
                                 $VSPVC.spec.resources.requests.storage = $($numericupdown2.value.tostring()+'Gi')
                                 $VSPVC | ConvertTo-Json -Depth 10 | out-file $env:temp\deploy.json
-                                $out = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.json -n $global:Namespace" -ErrorVariable err -ErrorAction SilentlyContinue 2>&1
+                                $out = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.json -n $script:Namespace" -ErrorVariable err -ErrorAction SilentlyContinue 2>&1
                                 $out += $err
                                 if($out | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Information')}
@@ -1281,7 +1280,7 @@ if($Edit)
 
         $numericupdown2.value = $InputObject.spec.storage.root.size.trimend('Gi')
         if($InputObject.spec.storage.root.source.pvc.namespace -eq 'vd-images'){$RadioButton5.Checked = $true}
-        Elseif($InputObject.spec.storage.root.source.pvc.namespace -eq $global:Namespace){$RadioButton6.Checked = $true}
+        Elseif($InputObject.spec.storage.root.source.pvc.namespace -eq $script:Namespace){$RadioButton6.Checked = $true}
 
         $username = $InputObject.spec.users.username
         $password = $InputObject.spec.users.password
