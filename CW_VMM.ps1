@@ -218,7 +218,7 @@ $Button1.Add_Click(
 
 $Button2.Add_Click(
     {
-        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $global:Namespace" -ErrorVariable LookupErr) | convertfrom-json
+        $Data = (iex "$env:ProgramData\k8s\kubectl.exe get vm -o json -n $global:Namespace" -ErrorVariable LookupErr 2>&1) | convertfrom-json
         if(!($LookupErr))
             {
                 $SvcData = (iex "$env:ProgramData\k8s\kubectl.exe get svc -o json -n $global:Namespace" |convertfrom-json)
@@ -277,7 +277,7 @@ $toolStripItem5.add_Click(
     {
         foreach($vm in $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value)
             {
-                $vs = (iex "$env:ProgramData\k8s\kubectl.exe get vs $($vm) -n $global:Namespace -o json" -ErrorVariable stderr -ErrorAction SilentlyContinue) | ConvertFrom-Json -ErrorAction SilentlyContinue
+                $vs = (iex "$env:ProgramData\k8s\kubectl.exe get vs $($vm) -n $global:Namespace -o json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1) | ConvertFrom-Json -ErrorAction SilentlyContinue
                 if($stderr){[System.Windows.Forms.MessageBox]::Show("$($stderr)",'CoreWeave Virtual Machine Manager','OK','Error');rv stderr}
                 Else{Deploy-VS -Edit:$true -InputObject $vs}
             }
@@ -355,7 +355,7 @@ function Invoke-k8ctl
                             {
                                 $stdout = @()
                                 $Delete = @()
-                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace");($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace")}
+                                $dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vs $($_) -n $global:Namespace" 2>&1);($Stdout += iex "$env:ProgramData\k8s\kubectl.exe $Action vm $($_) -n $global:Namespace" 2>&1)}
                                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                                 rv stdout,delete
@@ -366,8 +366,8 @@ function Invoke-k8ctl
         Else
             {
                 $stdout = @()
-                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $global:Namespace")}
-                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace")}}
+                if($Instance){($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($Instance) -n $global:Namespace" 2>&1)}
+                Else{$dataGridView.SelectedCells.OwningRow.Cells.Where{$_.ColumnIndex -eq 0}.Value | select -Unique | %{($Stdout += iex "$env:ProgramData\k8s\virtctl.exe $Action $($_) -n $global:Namespace" 2>&1)}}
                 if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine}))",'CoreWeave Virtual Machine Manager','OK','Error')}
                 Else{[System.Windows.Forms.MessageBox]::Show("$($stdout.ForEach({$_+[System.Environment]::NewLine+[System.Environment]::NewLine})+'Load Virtual Machines again to check status.')",'CoreWeave Virtual Machine Manager','OK','Information')}
                 rv stdout
@@ -1209,7 +1209,7 @@ $Button2.Add_Click(
 
             }
         $($json | convertto-json -Depth 20) | out-file $env:temp\deployvs.json
-        $Stdout = iex ("$env:ProgramData\k8s\kubectl.exe apply -n $global:Namespace -f $env:temp\deployvs.json") -ErrorVariable stderr -ErrorAction SilentlyContinue
+        $stdout = iex "$env:ProgramData\k8s\kubectl.exe apply -n $global:Namespace -f $env:temp\deployvs.json" -ErrorVariable stderr -ErrorAction SilentlyContinue 2>&1
         $stdout += $stderr
         if($stdout | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($stdout)",'CoreWeave Virtual Machine Manager','OK','Error')}
         Else
@@ -1221,7 +1221,7 @@ $Button2.Add_Click(
                                 $VSPVC = ($private.items | where {$_.metadata.name -eq $vs.metadata.name})
                                 $VSPVC.spec.resources.requests.storage = $($numericupdown2.value.tostring()+'Gi')
                                 $VSPVC | ConvertTo-Json -Depth 10 | out-file $env:temp\deploy.json
-                                $out = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.json -n $global:Namespace" -ErrorVariable err -ErrorAction SilentlyContinue
+                                $out = iex "$env:ProgramData\k8s\kubectl.exe apply -f $($env:temp)\deploy.json -n $global:Namespace" -ErrorVariable err -ErrorAction SilentlyContinue 2>&1
                                 $out += $err
                                 if($out | select-string -Pattern Error){[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Error')}
                                 Else{[System.Windows.Forms.MessageBox]::Show("$($out)",'CoreWeave Virtual Machine Manager','OK','Information')}
