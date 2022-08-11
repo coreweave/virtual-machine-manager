@@ -250,7 +250,7 @@ $Button2.Add_Click(
 		                $NewRow.RAM = $Row.spec.template.spec.domain.resources.requests.memory
 		                $NewRow.Storage = $Row.spec.datavolumetemplates.spec.pvc.resources.requests.storage
                         $NewRow.CreationTime = [DateTime]$(get-date $($Row.metadata.creationtimestamp) -Format 'MM/dd/yyy hh:mmtt')
-                        $NewRow.Running = $Row.status.conditions.status
+                        $NewRow.Running = $Row.status.conditions.Where({$_.type -eq 'ready'}).status
                         $NewRow.Namespace = $Row.metadata.namespace
 		                $Table.Rows.Add($NewRow)
 	                }
